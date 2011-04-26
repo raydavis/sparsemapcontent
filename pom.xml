@@ -297,18 +297,16 @@
   <distributionManagement>
     <downloadUrl>http://source.sakaiproject.org/maven2/</downloadUrl>
     <snapshotRepository>
-       <uniqueVersion>false</uniqueVersion>
-       <id>sakai-maven-snapshots-scp</id>
-       <name>Sakai snapshot Repo</name>
-       <url>scp://source.sakaiproject.org/var/www/html/maven2-snapshots</url>
-       <layout>default</layout>
+      <id>myberkeley-snapshots</id>
+      <name>MyBerkeley Snapshots</name>
+      <url>dav:http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley-snapshots/</url>
+      <uniqueVersion>false</uniqueVersion>
     </snapshotRepository>
     <repository>
+      <id>myberkeley</id>
+      <name>MyBerkeley</name>
+      <url>dav:http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley/</url>
       <uniqueVersion>false</uniqueVersion>
-      <id>sakai-maven2-scp</id>
-      <name>Sakai maven2 repository</name>
-      <url>scp://source.sakaiproject.org/var/www/html/maven2</url>
-      <layout>default</layout>
     </repository>
     <site>
       <id>sakai-site</id>
