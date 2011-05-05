@@ -26,6 +26,7 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.pool.PoolableObjectFactory;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
+import org.apache.felix.scr.annotations.ConfigurationPolicy;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
@@ -54,18 +55,18 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Timer;
 
-@Component(immediate = true, metatype = true, inherit = true)
+@Component(immediate = true, metatype = true, inherit = true, policy = ConfigurationPolicy.REQUIRE)
 @Service(value = StorageClientPool.class)
 public class JDBCStorageClientPool extends AbstractClientConnectionPool {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(JDBCStorageClientPool.class);
 
-    @Property(value = { "jdbc:derby:sling/sparsemap/db;create=true" })
+    @Property(value = { "" })
     public static final String CONNECTION_URL = "jdbc-url";
-    @Property(value = { "org.apache.derby.jdbc.EmbeddedDriver" })
+    @Property(value = { "" })
     public static final String JDBC_DRIVER = "jdbc-driver";
 
-    @Property(value = { "sa" })
+    @Property(value = { "" })
     private static final String USERNAME = "username";
     @Property(value = { "" })
     private static final String PASSWORD = "password";
