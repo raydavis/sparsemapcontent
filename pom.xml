@@ -345,5 +345,28 @@
       </snapshots>
       <url>http://source.sakaiproject.org/maven2/</url>
     </repository>
+    <repository>
+      <id>myberkeley-releases</id>
+      <name>MyBerkeley Releases</name>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <url>http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley/</url>
+    </repository>
+    <repository>
+      <id>myberkeley-snapshots</id>
+      <name>MyBerkeley Snapshots</name>
+      <layout>default</layout>
+      <url>http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
   </repositories>
 </project>
