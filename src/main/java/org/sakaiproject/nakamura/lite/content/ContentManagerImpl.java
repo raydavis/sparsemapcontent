@@ -144,8 +144,10 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
     private static final Logger LOGGER = LoggerFactory.getLogger(ContentManagerImpl.class);
 
 
-    private static final Set<String> DEEP_COPY_FILTER = ImmutableSet.of(LASTMODIFIED_FIELD,
-            LASTMODIFIED_BY_FIELD, UUID_FIELD, PATH_FIELD);
+    private static final Set<String> PROTECTED_FIELDS = ImmutableSet.of(LASTMODIFIED_FIELD,
+                                                                        LASTMODIFIED_BY_FIELD,
+                                                                        UUID_FIELD,
+                                                                        PATH_FIELD);
 
 
     /**
@@ -312,7 +314,10 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 content = existingContent;
             }
         }
+
         Map<String, Object> originalProperties = ImmutableMap.of();
+        boolean isAdmin = User.ADMIN_USER.equals(accessControlManager.getCurrentUserId());
+
         if (content.isNew()) {
             // create the parents if necessary
             if (!StorageClientUtils.isRoot(path)) {
@@ -323,8 +328,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 }
             }
             toSave =  Maps.newHashMap(content.getPropertiesForUpdate());
-            boolean isAdmin = User.ADMIN_USER.equals(accessControlManager.getCurrentUserId());
-            id = StorageClientUtils.getUuid();
+            id = StorageClientUtils.getInternalUuid();
             // if the user is admin we allow overwriting of protected fields. This should allow content migration.
             setField(isAdmin, toSave, UUID_FIELD, id);
             toSave.put(PATH_FIELD, path);
@@ -337,6 +341,12 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         } else if (content.isUpdated()) {
             originalProperties = content.getOriginalProperties();
             toSave =  Maps.newHashMap(content.getPropertiesForUpdate());
+
+            for (String field : PROTECTED_FIELDS) {
+                LOGGER.debug ("Resetting value for {} to {}", field, originalProperties.get(field));
+                setField(isAdmin, toSave, field, originalProperties.get(field));
+            }
+
             id = (String)toSave.get(UUID_FIELD);
             toSave.put(LASTMODIFIED_FIELD, System.currentTimeMillis());
             toSave.put(LASTMODIFIED_BY_FIELD,
@@ -413,7 +423,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (content.containsKey(blockIdField)) {
             isnew = false;      
         }
-        String contentBlockId = StorageClientUtils.getUuid();
+        String contentBlockId = StorageClientUtils.getInternalUuid();
         
         Map<String, Object> metadata = client.streamBodyIn(keySpace, contentColumnFamily,
                 contentId, contentBlockId, streamId, content, in);
@@ -428,7 +438,11 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                     accessControlManager.getCurrentUserId());
         }
         putCached(keySpace, contentColumnFamily, contentId, metadata, isnew);
-        long length = (Long) metadata.get(LENGTH_FIELD);
+        long length = 0;
+        String lengthFieldName = StorageClientUtils.getAltField(LENGTH_FIELD, streamId);
+        if (metadata.containsKey(lengthFieldName)) {
+          length = (Long) metadata.get(lengthFieldName);
+        }
         eventListener.onUpdate(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), false, null, "stream", streamId);
         return length;
 
@@ -490,7 +504,9 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         Map<String, Object> copyProperties = Maps.newHashMap();
         if (withStreams) {
             for (Entry<String, Object> p : f.getProperties().entrySet()) {
-                if (!DEEP_COPY_FILTER.contains(p.getKey())) {
+                // Protected fields (such as ID and path) will differ between
+                // the source and destination, so don't copy them.
+                if (!PROTECTED_FIELDS.contains(p.getKey())) {
                     if (p.getKey().startsWith(BLOCKID_FIELD)) {
                         streams.add(p.getKey());
                     } else {
@@ -650,7 +666,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         String versionHistoryId = (String)saveVersion.get(VERSION_HISTORY_ID_FIELD);
 
         if (versionHistoryId == null) {
-            versionHistoryId = StorageClientUtils.getUuid();
+            versionHistoryId = StorageClientUtils.getInternalUuid();
             LOGGER.debug("Created new Version History UUID as {} for Object {} ",versionHistoryId, saveVersionId);
             saveVersion.put(VERSION_HISTORY_ID_FIELD, versionHistoryId);
         } else {
@@ -659,7 +675,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         }
 
         Map<String, Object> newVersion = Maps.newHashMap(saveVersion);
-        String newVersionId = StorageClientUtils.getUuid();
+        String newVersionId = StorageClientUtils.getInternalUuid();
 
 
         String saveBlockId = (String)saveVersion.get(BLOCKID_FIELD);
