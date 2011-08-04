@@ -1,5 +1,6 @@
 package org.sakaiproject.nakamura.lite.jdbc.derby;
 
+import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -11,20 +12,27 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.text.MessageFormat;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.io.FileUtils;
 
-public class TestMultiRows {
+public class MultiRowsMain {
 
     
     private Connection connection;
     private String[] dictionary;
 
-    public TestMultiRows() throws SQLException {
-        connection = DriverManager.getConnection("jdbc:derby:memory:MyDB;create=true", "sa", "");
+    public MultiRowsMain() {
+    }
+    
+    public void deleteDb(String file) {
+        FileUtils.deleteQuietly(new File(file));
+    }
+    
+    public void open(String file) throws SQLException {
+        connection = DriverManager.getConnection("jdbc:derby:"+file+"/db;create=true", "sa", "");        
     }
     
     public void createTables(int columns) throws SQLException {
@@ -69,8 +77,11 @@ public class TestMultiRows {
         PreparedStatement p = connection.prepareStatement(sb.toString());
         MessageDigest sha1 = MessageDigest.getInstance("SHA1");
         SecureRandom sr = new SecureRandom();
-        
-        for ( int i = 0; i < records; i++) {
+        long cs = System.currentTimeMillis();
+        ResultSet rs = connection.createStatement().executeQuery("select count(*) from cn_css_index");
+        rs.next();
+        int nrows = rs.getInt(1);
+        for ( int i = 0+nrows; i < records+nrows; i++) {
             String rid = Base64.encodeBase64URLSafeString(sha1.digest(String.valueOf("TEST"+i).getBytes("UTF-8")));
             p.clearParameters();
             p.setString(1, rid);
@@ -84,7 +95,9 @@ public class TestMultiRows {
             p.execute();
             
             if ( i%100 == 0) {
-                System.err.println("Commit "+i);
+                long ct = System.currentTimeMillis();
+                System.err.println("Commit "+i+" "+(ct-cs)+" ms/100");
+                cs = ct;
                 connection.commit();
             }
         }
@@ -154,10 +167,15 @@ public class TestMultiRows {
     }
     
     public static void main(String[] argv) throws SQLException, NoSuchAlgorithmException, UnsupportedEncodingException {
-        TestMultiRows tmr = new TestMultiRows();
-        tmr.createTables(30);
+        MultiRowsMain tmr = new MultiRowsMain();
+        String db = "target/testwide";
+        boolean exists = new File("target/testwide").exists();
+        tmr.open(db);
+        if ( ! exists ) {
+            tmr.createTables(30);
+        }
         tmr.populateDictionary(1000);
-        tmr.loadTable(30, 100000);
+        tmr.loadTable(30, 200000);
         tmr.testSelect(1, 0, 30, 5000);
         tmr.testSelect(2, 0, 30, 5000);
         tmr.testSelect(3, 0, 30, 5000);
