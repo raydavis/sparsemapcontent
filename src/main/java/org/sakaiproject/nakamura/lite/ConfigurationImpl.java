@@ -76,7 +76,7 @@ public class ConfigurationImpl implements Configuration {
 
     protected static final String SHAREDCONFIGPROPERTY = "sparseconfig";
     private static final Logger LOGGER = LoggerFactory.getLogger(ConfigurationImpl.class);
-    public static final String DEFAULT_UUID_FIELD = Repository.SYSTEM_PROP_PREFIX+ "sparseId";
+    public static final String DEFAULT_UUID_FIELD = Repository.SYSTEM_PROP_PREFIX+ "id";
     /**
      * 
      */
