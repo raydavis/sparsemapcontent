@@ -31,7 +31,7 @@ public class ContentManagerFinderImplMan extends AbstractContentManagerFinderTes
   protected StorageClientPool getClientPool(Configuration configuration)
       throws ClassNotFoundException {
       if ( true ) {
-          throw new RuntimeException("Not active");
+          return null;
       }
     HBaseStorageClientPool cp = new HBaseStorageClientPool();
     cp.activate(ImmutableMap.of("test", (Object) "test",

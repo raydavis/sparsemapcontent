@@ -31,6 +31,48 @@ CREATE TABLE cn_css (
   primary key(id));
 CREATE INDEX cn_css_i ON cn_css (rid, cid);
 
+CREATE TABLE css_w (
+  id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),
+  rid varchar(32) NOT NULL,
+  primary key(id));
+CREATE UNIQUE INDEX css_w_rid ON css (rid);
+
+
+  
+CREATE TABLE ac_css_w (
+  id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),
+  rid varchar(32) NOT NULL,
+  primary key(id));
+CREATE UNIQUE INDEX ac_css_w_rid ON css (rid);
+
+
+
+  
+  
+CREATE TABLE au_css_w (
+  id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),
+  rid varchar(32) NOT NULL,
+  primary key(id));
+CREATE UNIQUE INDEX au_css_w_rid ON css (rid);
+
+
+CREATE TABLE cn_css_w (
+  id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),
+  rid varchar(32) NOT NULL,
+  primary key(id));
+CREATE UNIQUE INDEX cn_css_w_rid ON css (rid);
+
+
+CREATE TABLE  css_wr (
+  id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),
+  cf varchar(32) NOT NULL,
+  cid varchar(64) NOT NULL,
+  cname varchar(64) NOT NULL,
+  primary key(id));
+  
+CREATE UNIQUE INDEX css_r_cid ON css_wr (cf,cid);
+CREATE UNIQUE INDEX css_r_cnam ON css_wr (cf,cname);
+
 
 
 CREATE TABLE  csb (

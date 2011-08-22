@@ -28,12 +28,10 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.MessageFormat;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -70,46 +68,47 @@ import com.google.common.collect.Sets;
 
 public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
 
-private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
-
     public class SlowQueryLogger {
         // only used to define the logger.
     }
+    
+    private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
     private static final Logger LOGGER = LoggerFactory.getLogger(JDBCStorageClient.class);
-    private static final Logger SQL_LOGGER = LoggerFactory.getLogger(SlowQueryLogger.class);
+    static final Logger SQL_LOGGER = LoggerFactory.getLogger(SlowQueryLogger.class);
     private static final String SQL_VALIDATE = "validate";
     private static final String SQL_CHECKSCHEMA = "check-schema";
     private static final String SQL_COMMENT = "#";
     private static final String SQL_EOL = ";";
-    private static final String SQL_DELETE_STRING_ROW = "delete-string-row";
-    private static final String SQL_INSERT_STRING_COLUMN = "insert-string-column";
-    private static final String SQL_REMOVE_STRING_COLUMN = "remove-string-column";
+    private static final String SQL_INDEX_COLUMN_NAME_SELECT = "index-column-name-select";
+    private static final String SQL_INDEX_COLUMN_NAME_INSERT = "index-column-name-insert";
+    static final String SQL_DELETE_STRING_ROW = "delete-string-row";
+    static final String SQL_INSERT_STRING_COLUMN = "insert-string-column";
+    static final String SQL_REMOVE_STRING_COLUMN = "remove-string-column";
 
-    private static final String SQL_BLOCK_DELETE_ROW = "block-delete-row";
-    private static final String SQL_BLOCK_SELECT_ROW = "block-select-row";
-    private static final String SQL_BLOCK_INSERT_ROW = "block-insert-row";
-    private static final String SQL_BLOCK_UPDATE_ROW = "block-update-row";
+    static final String SQL_BLOCK_DELETE_ROW = "block-delete-row";
+    static final String SQL_BLOCK_SELECT_ROW = "block-select-row";
+    static final String SQL_BLOCK_INSERT_ROW = "block-insert-row";
+    static final String SQL_BLOCK_UPDATE_ROW = "block-update-row";
 
     private static final String PROP_HASH_ALG = "rowid-hash";
     private static final String USE_BATCH_INSERTS = "use-batch-inserts";
     private static final String JDBC_SUPPORT_LEVEL = "jdbc-support-level";
     private static final String SQL_STATEMENT_SEQUENCE = "sql-statement-sequence";
     private static final String UPDATE_FIRST_SEQUENCE = "updateFirst";
+    private static final Object SLOW_QUERY_THRESHOLD = "slow-query-time";
+    private static final Object VERY_SLOW_QUERY_THRESHOLD = "very-slow-query-time";
     /**
      * A set of columns that are indexed to allow operations within the driver.
      */
-    private static final Set<String> AUTO_INDEX_COLUMNS = ImmutableSet.of(
+    static final Set<String> AUTO_INDEX_COLUMNS_TYPES = ImmutableSet.of(
+            "cn:_:parenthash=String",
+            "au:_:parenthash=String",
+            "ac:_:parenthash=String");
+    static final Set<String> AUTO_INDEX_COLUMNS = ImmutableSet.of(
             "cn:_:parenthash",
             "au:_:parenthash",
             "ac:_:parenthash");
-    private static final int STMT_BASE = 0;
-    private static final int STMT_TABLE_JOIN = 1;
-    private static final int STMT_WHERE = 2;
-    private static final int STMT_WHERE_SORT = 3;
-    private static final int STMT_ORDER = 4;
-    private static final int STMT_EXTRA_COLUMNS = 5;
-    private static final Object SLOW_QUERY_THRESHOLD = "slow-query-time";
-    private static final Object VERY_SLOW_QUERY_THRESHOLD = "very-slow-query-time";
+    private static final Map<String, String> COLUMN_NAME_MAPPING = ImmutableMap.of("_:parenthash","parenthash");
 
     private JDBCStorageClientPool jcbcStorageClientConnection;
     private Map<String, Object> sqlConfig;
@@ -121,11 +120,12 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
     private String rowidHash;
     private Map<String, AtomicInteger> counters = Maps.newConcurrentHashMap();
     private Set<String> indexColumns;
+    private Indexer indexer;
     private long slowQueryThreshold;
     private long verySlowQueryThreshold;
 
     public JDBCStorageClient(JDBCStorageClientPool jdbcStorageClientConnectionPool,
-            Map<String, Object> properties, Map<String, Object> sqlConfig, Set<String> indexColumns) throws SQLException,
+            Map<String, Object> properties, Map<String, Object> sqlConfig, Set<String> indexColumns, Set<String> indexColumnTypes, Map<String, String> indexColumnsNames) throws SQLException,
             NoSuchAlgorithmException, StorageClientException {
         if ( jdbcStorageClientConnectionPool == null ) {
             throw new StorageClientException("Null Connection Pool, cant create Client");
@@ -149,6 +149,14 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
             rowidHash = "MD5";
         }
         active = true;
+        if ( indexColumnsNames != null ) {
+            indexer = new WideColumnIndexer(this,indexColumnsNames, indexColumnTypes, sqlConfig);
+        } else if ("1".equals(getSql(USE_BATCH_INSERTS))) {
+            indexer = new BatchInsertIndexer(this, indexColumns, sqlConfig);
+        } else {
+            indexer = new NonBatchInsertIndexer(this, indexColumns, sqlConfig);
+        }
+        
         slowQueryThreshold = 50L;
         verySlowQueryThreshold = 100L;
         if (sqlConfig.containsKey(SLOW_QUERY_THRESHOLD)) {
@@ -157,6 +165,7 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
         if (sqlConfig.containsKey(VERY_SLOW_QUERY_THRESHOLD)) {
             verySlowQueryThreshold = Long.parseLong((String)sqlConfig.get(VERY_SLOW_QUERY_THRESHOLD));
         }
+
     }
 
     public Map<String, Object> get(String keySpace, String columnFamily, String key)
@@ -165,7 +174,7 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
         String rid = rowHash(keySpace, columnFamily, key);
         return internalGet(keySpace, columnFamily, rid);
     }
-    private Map<String, Object> internalGet(String keySpace, String columnFamily, String rid) throws StorageClientException {
+    Map<String, Object> internalGet(String keySpace, String columnFamily, String rid) throws StorageClientException {
         ResultSet body = null;
         Map<String, Object> result = Maps.newHashMap();
         PreparedStatement selectStringRow = null;
@@ -344,224 +353,10 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
                     LOGGER.debug("Updated {} ", rid);
                 }
             }
-            if ("1".equals(getSql(USE_BATCH_INSERTS))) {
-                Set<PreparedStatement> removeSet = Sets.newHashSet();
-                // execute the updates and add the necessary inserts.
-                Map<PreparedStatement, List<Entry<String, Object>>> insertSequence = Maps
-                        .newHashMap();
-
-                Set<PreparedStatement> insertSet = Sets.newHashSet();
-
-                for (Entry<String, Object> e : values.entrySet()) {
-                    String k = e.getKey();
-                    Object o = e.getValue();
-                    if (shouldIndex(keySpace, columnFamily, k)) {
-                        if ( o instanceof RemoveProperty || o == null ) {
-                            PreparedStatement removeStringColumn = getStatement(keySpace,
-                                    columnFamily, SQL_REMOVE_STRING_COLUMN, rid, statementCache);
-                            removeStringColumn.setString(1, rid);
-                            removeStringColumn.setString(2, k);
-                            removeStringColumn.addBatch();
-                            removeSet.add(removeStringColumn);
-                        } else {
-                            // remove all previous values
-                            PreparedStatement removeStringColumn = getStatement(keySpace,
-                                    columnFamily, SQL_REMOVE_STRING_COLUMN, rid, statementCache);
-                            removeStringColumn.setString(1, rid);
-                            removeStringColumn.setString(2, k);
-                            removeStringColumn.addBatch();
-                            removeSet.add(removeStringColumn);
-                            // insert new values, as we just removed them we know we can insert, no need to attempt update
-                            // the only thing that we know is the colum value changes so we have to re-index the whole
-                            // property
-                            Object[] valueMembers = (o instanceof Object[]) ? (Object[]) o : new Object[] { o };
-                            for (Object ov : valueMembers) {
-                                String valueMember = ov.toString();
-                                PreparedStatement insertStringColumn = getStatement(keySpace,
-                                    columnFamily, SQL_INSERT_STRING_COLUMN, rid, statementCache);
-                                insertStringColumn.setString(1, valueMember);
-                                insertStringColumn.setString(2, rid);
-                                insertStringColumn.setString(3, k);
-                                insertStringColumn.addBatch();
-                                LOGGER.debug("Insert Index {} {}", k, valueMember);
-                                insertSet.add(insertStringColumn);
-                                List<Entry<String, Object>> insertSeq = insertSequence
-                                .get(insertStringColumn);
-                                if (insertSeq == null) {
-                                  insertSeq = Lists.newArrayList();
-                                  insertSequence.put(insertStringColumn, insertSeq);
-                                }
-                                insertSeq.add(e);
-                            }
-                        }
-                    }
-                }
-
-                if ( !StorageClientUtils.isRoot(key)) {
-                    // create a holding map containing a rowhash of the parent and then process the entry to generate a update operation.
-                    Map<String, Object> autoIndexMap = ImmutableMap.of(InternalContent.PARENT_HASH_FIELD, (Object)rowHash(keySpace, columnFamily, StorageClientUtils.getParentObjectPath(key)));
-                    for ( Entry<String, Object> e : autoIndexMap.entrySet()) {
-                        // remove all previous values
-                        PreparedStatement removeStringColumn = getStatement(keySpace,
-                                columnFamily, SQL_REMOVE_STRING_COLUMN, rid, statementCache);
-                        removeStringColumn.setString(1, rid);
-                        removeStringColumn.setString(2, e.getKey());
-                        removeStringColumn.addBatch();
-                        removeSet.add(removeStringColumn);
-                        PreparedStatement insertStringColumn = getStatement(keySpace,
-                                columnFamily, SQL_INSERT_STRING_COLUMN, rid, statementCache);
-                        insertStringColumn.setString(1, (String)e.getValue());
-                        insertStringColumn.setString(2, rid);
-                        insertStringColumn.setString(3, e.getKey());
-                        insertStringColumn.addBatch();
-                        LOGGER.debug("Insert {} {}", e.getKey(), e.getValue());
-                        insertSet.add(insertStringColumn);
-                        List<Entry<String, Object>> insertSeq = insertSequence
-                                .get(insertStringColumn);
-                        if (insertSeq == null) {
-                            insertSeq = Lists.newArrayList();
-                            insertSequence.put(insertStringColumn, insertSeq);
-                        }
-                        insertSeq.add(e);
-                    }
-                }
-
-                LOGGER.debug("Remove set {}", removeSet);
-
-                for (PreparedStatement pst : removeSet) {
-                    pst.executeBatch();
-                }
-
-                LOGGER.debug("Insert set {}", insertSet);
-                for (PreparedStatement pst : insertSet) {
-                    int[] res = pst.executeBatch();
-                    List<Entry<String, Object>> insertSeq = insertSequence.get(pst);
-                    for (int i = 0; i < res.length; i++ ) {
-                        Entry<String, Object> e = insertSeq.get(i);
-                        if ( res[i] <= 0 && res[i] != -2 ) { // Oracle drivers respond with -2 on a successful insert when the number is not known http://download.oracle.com/javase/1.3/docs/guide/jdbc/spec2/jdbc2.1.frame6.html
-                            LOGGER.warn("Index failed for {} {} ", new Object[] { rid, e.getKey(),
-                                    e.getValue() });
-                            
-                        } else {
-                            LOGGER.debug("Index inserted for {} {} ", new Object[] { rid, e.getKey(),
-                                    e.getValue() });
-
-                        }
-                    }
-                }
-
-            } else {
-                for (Entry<String, Object> e : values.entrySet()) {
-                    String k = e.getKey();
-                    Object o = e.getValue();
-                    if (shouldIndex(keySpace, columnFamily, k)) {
-                        if (o instanceof RemoveProperty || o == null) {
-                            PreparedStatement removeStringColumn = getStatement(keySpace,
-                                    columnFamily, SQL_REMOVE_STRING_COLUMN, rid, statementCache);
-                            removeStringColumn.clearWarnings();
-                            removeStringColumn.clearParameters();
-                            removeStringColumn.setString(1, rid);
-                            removeStringColumn.setString(2, k);
-                            int nrows = removeStringColumn.executeUpdate();
-                            if (nrows == 0) {
-                                m = get(keySpace, columnFamily, key);
-                                LOGGER.debug(
-                                        "Column Not present did not remove {} {} Current Column:{} ",
-                                        new Object[] { getRowId(keySpace, columnFamily, key), k, m });
-                            } else {
-                                LOGGER.debug("Removed Index {} {} {} ",
-                                        new Object[]{getRowId(keySpace, columnFamily, key), k, nrows});
-                            }
-                        } else {
-                            PreparedStatement removeStringColumn = getStatement(keySpace,
-                                    columnFamily, SQL_REMOVE_STRING_COLUMN, rid, statementCache);
-                            removeStringColumn.clearWarnings();
-                            removeStringColumn.clearParameters();
-                            removeStringColumn.setString(1, rid);
-                            removeStringColumn.setString(2, k);
-                            int nrows = removeStringColumn.executeUpdate();
-                            if (nrows == 0) {
-                                m = get(keySpace, columnFamily, key);
-                                LOGGER.debug(
-                                        "Column Not present did not remove {} {} Current Column:{} ",
-                                        new Object[] { getRowId(keySpace, columnFamily, key), k, m });
-                            } else {
-                                LOGGER.debug("Removed Index {} {} {} ",
-                                        new Object[]{getRowId(keySpace, columnFamily, key), k, nrows});
-                            }
-                            Object[] os = (o instanceof Object[]) ? (Object[]) o : new Object[] { o };
-                            for (Object ov : os) {
-                                String v = ov.toString();
-                                PreparedStatement insertStringColumn = getStatement(keySpace,
-                                        columnFamily, SQL_INSERT_STRING_COLUMN, rid, statementCache);
-                                insertStringColumn.clearWarnings();
-                                insertStringColumn.clearParameters();
-                                insertStringColumn.setString(1, v);
-                                insertStringColumn.setString(2, rid);
-                                insertStringColumn.setString(3, k);
-                                LOGGER.debug("Non Batch Insert Index {} {}", k, v);
-                                if (insertStringColumn.executeUpdate() == 0) {
-                                    throw new StorageClientException("Failed to save "
-                                            + getRowId(keySpace, columnFamily, key) + "  column:["
-                                            + k + "] ");
-                                } else {
-                                    LOGGER.debug("Inserted Index {} {} [{}]",
-                                            new Object[] { getRowId(keySpace, columnFamily, key),
-                                                    k, v });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (!StorageClientUtils.isRoot(key)) {
-                    String parent = StorageClientUtils.getParentObjectPath(key);
-                    String hash = rowHash(keySpace, columnFamily, parent);
-                    LOGGER.debug("Hash of {}:{}:{} is {} ", new Object[] { keySpace, columnFamily,
-                            parent, hash });
-                    Map<String, Object> autoIndexMap = ImmutableMap.of(
-                            InternalContent.PARENT_HASH_FIELD, (Object) hash);
-                    for (Entry<String, Object> e : autoIndexMap.entrySet()) {
-                        String k = e.getKey();
-                        Object v = e.getValue();
-                        PreparedStatement removeStringColumn = getStatement(keySpace, columnFamily,
-                                SQL_REMOVE_STRING_COLUMN, rid, statementCache);
-                        removeStringColumn.clearWarnings();
-                        removeStringColumn.clearParameters();
-                        removeStringColumn.setString(1, rid);
-                        removeStringColumn.setString(2, k);
-                        int nrows = removeStringColumn.executeUpdate();
-                        if (nrows == 0) {
-                            m = get(keySpace, columnFamily, key);
-                            LOGGER.debug(
-                                    "Column Not present did not remove {} {} Current Column:{} ",
-                                    new Object[] { getRowId(keySpace, columnFamily, key), k, m });
-                        } else {
-                            LOGGER.debug(
-                                    "Removed Index {} {} {} ",
-                                    new Object[] { getRowId(keySpace, columnFamily, key), k, nrows });
-                        }
-
-                        PreparedStatement insertStringColumn = getStatement(keySpace, columnFamily,
-                                SQL_INSERT_STRING_COLUMN, rid, statementCache);
-                        insertStringColumn.clearWarnings();
-                        insertStringColumn.clearParameters();
-                        insertStringColumn.setString(1, v.toString());
-                        insertStringColumn.setString(2, rid);
-                        insertStringColumn.setString(3, k);
-                        LOGGER.debug("Non Batch Insert Index {} {}", k, v);
-                        if (insertStringColumn.executeUpdate() == 0) {
-                            throw new StorageClientException("Failed to save "
-                                    + getRowId(keySpace, columnFamily, key) + "  column:[" + k
-                                    + "] ");
-                        } else {
-                            LOGGER.debug("Inserted Index {} {} [{}]",
-                                    new Object[] { getRowId(keySpace, columnFamily, key), k, v });
-                        }
-                    }
-                }
-
-            }
+            
+            // Indexing ---------------------------------------------------------------------------
+            indexer.index(statementCache, keySpace, columnFamily, key, rid, values);
+            
             endBlock(autoCommit);
         } catch (SQLException e) {
             abandonBlock(autoCommit);
@@ -576,6 +371,14 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
         } finally {
             close(statementCache);
         }
+    }
+
+    String getSql(String keySpace, String columnFamily, String name) {
+        return getSql(new String[]{
+           name+"."+keySpace+"."+columnFamily,
+           name+"."+keySpace,
+           name
+        });
     }
 
     private void abandonBlock(boolean autoCommit) {
@@ -605,27 +408,8 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
         return autoCommit;
       }
 
-    private boolean shouldFind(String keySpace, String columnFamily, String k) {
-        String key = columnFamily+":"+k;
-        if ( AUTO_INDEX_COLUMNS.contains(key) || indexColumns.contains(key)) {
-            return true;
-        } else {
-            LOGGER.debug("Ignoring Find operation on {}:{}", columnFamily, k);     
-        }
-        return false;
-    }
-    private boolean shouldIndex(String keySpace, String columnFamily, String k) {
-        String key = columnFamily+":"+k;
-        if ( AUTO_INDEX_COLUMNS.contains(key) || indexColumns.contains(key)) {
-            LOGGER.debug("Will Index {}:{}", columnFamily, k);
-            return true;
-        } else {
-            LOGGER.debug("Will Not Index {}:{}", columnFamily, k);
-            return false;
-        }
-    }
 
-    private String getRowId(String keySpace, String columnFamily, String key) {
+    String getRowId(String keySpace, String columnFamily, String key) {
         return keySpace + ":" + columnFamily + ":" + key;
     }
 
@@ -693,7 +477,7 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
      * @return
      * @throws SQLException
      */
-    private PreparedStatement getStatement(String keySpace, String columnFamily,
+    PreparedStatement getStatement(String keySpace, String columnFamily,
             String sqlSelectStringRow, String rid, Map<String, PreparedStatement> statementCache)
             throws SQLException {
         String shard = rid.substring(0, 1);
@@ -707,9 +491,11 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
                 sqlSelectStringRow };
         for (String k : keys) {
             if (sqlConfig.containsKey(k)) {
+                LOGGER.debug("Using Statement {} ",sqlConfig.get(k));
                 if (statementCache != null && statementCache.containsKey(k)) {
                     return statementCache.get(k);
                 } else {
+                    
                     PreparedStatement pst = jcbcStorageClientConnection.getConnection()
                             .prepareStatement((String) sqlConfig.get(k));
                     if (statementCache != null) {
@@ -721,6 +507,22 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
             }
         }
         return null;
+    }
+    
+    PreparedStatement getStatement(String sql,   Map<String, PreparedStatement> statementCache) throws SQLException {
+        PreparedStatement pst = null;
+        if ( statementCache != null ) {
+            if ( statementCache.containsKey(sql)) {
+                pst =  statementCache.get(sql);
+            } else {
+                pst = jcbcStorageClientConnection.getConnection().prepareStatement(sql);
+                inc("cachedStatement");
+                statementCache.put(sql, pst);
+            }
+        } else {
+            pst = jcbcStorageClientConnection.getConnection().prepareStatement(sql);            
+        }
+        return pst;
     }
 
     public void shutdownConnection() {
@@ -750,7 +552,7 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
         }
     }
 
-    private <T extends Disposable> T registerDisposable(T disposable) {
+    <T extends Disposable> T registerDisposable(T disposable) {
         // this should not be necessary, but just in case some one is sharing the client between threads.
         synchronized (toDispose) {
             toDispose.add(disposable);
@@ -779,6 +581,16 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
                 LOGGER.debug("Failed to close statement in validate ", e);
             }
         }
+    }
+    
+    String getSql(String[] keys) {
+        for (String statementKey : keys) {
+            String sql = getSql(statementKey);
+            if (sql != null) {
+                return sql;
+            }
+        }
+        return null;
     }
 
     private String getSql(String statementName) {
@@ -865,6 +677,8 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
                 LOGGER.debug("Failed to close statement in validate ", e);
             }
         }
+        
+        
     }
 
     public void activate() {
@@ -936,341 +750,11 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
     public DisposableIterator<Map<String,Object>> find(final String keySpace, final String columnFamily,
             Map<String, Object> properties) throws StorageClientException {
         checkClosed();
+        return indexer.find(keySpace, columnFamily, properties);
         
-        String[] keys = null;
-        if ( properties != null  && properties.containsKey(StorageConstants.CUSTOM_STATEMENT_SET)) {
-            String customStatement = (String) properties.get(StorageConstants.CUSTOM_STATEMENT_SET);
-            keys = new String[] { 
-                    customStatement+ "." + keySpace + "." + columnFamily,
-                    customStatement +  "." + columnFamily, 
-                    customStatement, 
-                    "block-find." + keySpace + "." + columnFamily,
-                    "block-find." + columnFamily, 
-                    "block-find" 
-           };            
-        } else {
-            keys = new String[] { "block-find." + keySpace + "." + columnFamily,
-                    "block-find." + columnFamily, "block-find" };            
-        }
-        
-        final boolean rawResults = properties != null && properties.containsKey(StorageConstants.RAWRESULTS);
-
-        String sql = null;
-        for (String statementKey : keys) {
-            sql = getSql(statementKey);
-            if (sql != null) {
-                break;
-            }
-        }
-        if (sql == null) {
-            throw new StorageClientException("Failed to locate SQL statement for any of  "
-                    + Arrays.toString(keys));
-        }
-
-        String[] statementParts = StringUtils.split(sql, ';');
-
-        StringBuilder tables = new StringBuilder();
-        StringBuilder where = new StringBuilder();
-        StringBuilder order = new StringBuilder();
-        StringBuilder extraColumns = new StringBuilder();
-
-        // collect information on paging
-        long page = 0;
-        long items = 25;
-        if (properties != null) {
-          if (properties.containsKey(StorageConstants.PAGE)) {
-            page = Long.valueOf(String.valueOf(properties.get(StorageConstants.PAGE)));
-          }
-          if (properties.containsKey(StorageConstants.ITEMS)) {
-            items = Long.valueOf(String.valueOf(properties.get(StorageConstants.ITEMS)));
-          }
-        }
-        long offset = page * items;
-
-        // collect information on sorting
-        String[] sorts = new String[] { null, "asc" };
-        String _sortProp = (String) properties.get(StorageConstants.SORT);
-        if (_sortProp != null) {
-          String[] _sorts = StringUtils.split(_sortProp);
-          if (_sorts.length == 1) {
-            sorts[0] = _sorts[0];
-          } else if (_sorts.length == 2) {
-            sorts[0] = _sorts[0];
-            sorts[1] = _sorts[1];
-          }
-        }
-
-        List<Object> parameters = Lists.newArrayList();
-        int set = 0;
-        for (Entry<String, Object> e : properties.entrySet()) {
-            Object v = e.getValue();
-            String k = e.getKey();
-            if ( shouldFind(keySpace, columnFamily, k) || (v instanceof Map)) {
-                if (v != null) {
-                  // check for a value map and treat sub terms as for OR terms.
-                  // Only go 1 level deep; don't recurse. That's just silly.
-                  if (v instanceof Map) {
-                    // start the OR grouping
-                    where.append(" (");
-                    @SuppressWarnings("unchecked")
-                    Set<Entry<String, Object>> subterms = ((Map<String, Object>) v).entrySet();
-                    for(Iterator<Entry<String, Object>> subtermsIter = subterms.iterator(); subtermsIter.hasNext();) {
-                      Entry<String, Object> subterm = subtermsIter.next();
-                      String subk = subterm.getKey();
-                      Object subv = subterm.getValue();
-                      // check that each subterm should be indexed
-                      if (shouldFind(keySpace, columnFamily, subk)) {
-                        set = processEntry(statementParts, tables, where, order, extraColumns, parameters, subk, subv, sorts, set);
-                        // as long as there are more add OR
-                        if (subtermsIter.hasNext()) {
-                          where.append(" OR");
-                        }
-                      }
-                    }
-                    // end the OR grouping
-                    where.append(") AND");
-                  } else {
-                    // process a first level non-map value as an AND term
-
-                      if (v instanceof Iterable<?>) {
-                          for (Object vo : (Iterable<?>)v) {
-                              set = processEntry(statementParts, tables, where, order, extraColumns, parameters, k, vo, sorts, set);
-                              where.append(" AND");
-                          }
-                      } else {
-                          set = processEntry(statementParts, tables, where, order, extraColumns, parameters, k, v, sorts, set);
-                          where.append(" AND");
-                      }
-                  }
-                } else if (!k.startsWith("_")) {
-                  LOGGER.debug("Search on {}:{} filter dropped due to null value.", columnFamily, k);
-                }
-            } else {
-              if (!k.startsWith("_")) {
-                  LOGGER.warn("Search on {}:{} is not supported, filter dropped ",columnFamily,k);
-              }
-            }
-        }
-        if (where.length() == 0) {
-            return new DisposableIterator<Map<String,Object>>() {
-
-                private Disposer disposer;
-                public boolean hasNext() {
-                    return false;
-                }
-
-                public Map<String, Object> next() {
-                    return null;
-                }
-
-                public void remove() {
-                }
-
-                public void close() {
-                    if ( disposer != null ) {
-                        disposer.unregisterDisposable(this);
-                    }
-                }
-                public void setDisposer(Disposer disposer) {
-                    this.disposer = disposer;
-                }
-
-            };
-        }
-
-        if (sorts[0] != null && order.length() == 0) {
-          if (shouldFind(keySpace, columnFamily, sorts[0])) {
-            String t = "a"+set;
-            if ( statementParts.length > STMT_EXTRA_COLUMNS ) {
-                extraColumns.append(MessageFormat.format(statementParts[STMT_EXTRA_COLUMNS], t));
-            }
-            tables.append(MessageFormat.format(statementParts[STMT_TABLE_JOIN], t));
-            parameters.add(sorts[0]);
-            where.append(MessageFormat.format(statementParts[STMT_WHERE_SORT], t)).append(" AND");
-            order.append(MessageFormat.format(statementParts[STMT_ORDER], t, sorts[1]));
-          } else {
-            LOGGER.warn("Sort on {}:{} is not supported, sort dropped", columnFamily,
-                sorts[0]);
-          }
-        }
-
-
-        final String sqlStatement = MessageFormat.format(statementParts[STMT_BASE],
-            tables.toString(), where.toString(), order.toString(), items, offset, extraColumns.toString());
-
-        PreparedStatement tpst = null;
-        ResultSet trs = null;
-        try {
-            LOGGER.debug("Preparing {} ", sqlStatement);
-            tpst = jcbcStorageClientConnection.getConnection().prepareStatement(sqlStatement);
-            inc("iterator");
-            tpst.clearParameters();
-            int i = 1;
-            for (Object params : parameters) {
-                tpst.setObject(i, params);
-                LOGGER.debug("Setting {} ", params);
-
-                i++;
-            }
-
-            long qtime = System.currentTimeMillis();
-            trs = tpst.executeQuery();
-            qtime = System.currentTimeMillis() - qtime;
-            if ( qtime > slowQueryThreshold && qtime < verySlowQueryThreshold) {
-                SQL_LOGGER.warn("Slow Query {}ms {} params:[{}]",new Object[]{qtime,sqlStatement,Arrays.toString(parameters.toArray(new String[parameters.size()]))});
-            } else if ( qtime > verySlowQueryThreshold ) {
-                SQL_LOGGER.error("Very Slow Query {}ms {} params:[{}]",new Object[]{qtime,sqlStatement,Arrays.toString(parameters.toArray(new String[parameters.size()]))});
-            }
-            inc("iterator r");
-            LOGGER.debug("Executed ");
-
-            // pass control to the iterator.
-            final PreparedStatement pst = tpst;
-            final ResultSet rs = trs;
-            final ResultSetMetaData rsmd = rs.getMetaData();
-            tpst = null;
-            trs = null;
-            return registerDisposable(new PreemptiveIterator<Map<String, Object>>() {
-
-                private Map<String, Object> nextValue = Maps.newHashMap();
-                private boolean open = true;
-
-                @Override
-                protected Map<String, Object> internalNext() {
-                    return nextValue;
-                }
-
-                @Override
-                protected boolean internalHasNext() {
-                    try {
-                        if (open && rs.next()) {
-                            if ( rawResults ) {
-                                Builder<String, Object> b = ImmutableMap.builder();
-                                for  (int i = 1; i <= rsmd.getColumnCount(); i++ ) {
-                                    b.put(String.valueOf(i), rs.getObject(i));
-                                }
-                                nextValue = b.build();
-                            } else {
-                               String id = rs.getString(1);
-                               nextValue = internalGet(keySpace, columnFamily, id);
-                               LOGGER.debug("Got Row ID {} {} ", id, nextValue);
-                            }
-                            return true;
-                        }
-                        close();
-                        nextValue = null;
-                        LOGGER.debug("End of Set ");
-                        return false;
-                    } catch (SQLException e) {
-                        LOGGER.error(e.getMessage(), e);
-                        close();
-                        nextValue = null;
-                        return false;
-                    } catch (StorageClientException e) {
-                        LOGGER.error(e.getMessage(), e);
-                        close();
-                        nextValue = null;
-                        return false;
-                    }
-                }
-
-                @Override
-                public void close() {
-                    if (open) {
-                        open = false;
-                        try {
-                            if (rs != null) {
-                                rs.close();
-                                dec("iterator r");
-                            }
-                        } catch (SQLException e) {
-                            LOGGER.warn(e.getMessage(), e);
-                        }
-                        try {
-                            if (pst != null) {
-                                pst.close();
-                                dec("iterator");
-                            }
-                        } catch (SQLException e) {
-                            LOGGER.warn(e.getMessage(), e);
-                        }
-                        super.close();
-                    }
-
-                }
-            });
-        } catch (SQLException e) {
-            LOGGER.error(e.getMessage(), e);
-            throw new StorageClientException(e.getMessage() + " SQL Statement was " + sqlStatement,
-                    e);
-        } finally {
-            // trs and tpst will only be non null if control has not been passed
-            // to the iterator.
-            try {
-                if (trs != null) {
-                    trs.close();
-                    dec("iterator r");
-                }
-            } catch (SQLException e) {
-                LOGGER.warn(e.getMessage(), e);
-            }
-            try {
-                if (tpst != null) {
-                    tpst.close();
-                    dec("iterator");
-                }
-            } catch (SQLException e) {
-                LOGGER.warn(e.getMessage(), e);
-            }
-        }
 
     }
 
-    
-
-    /**
-     * @param statementParts
-     * @param where
-     * @param params
-     * @param k
-     * @param v
-     * @param t
-     * @param conjunctionOr
-     */
-    private int processEntry(String[] statementParts, StringBuilder tables,
-        StringBuilder where, StringBuilder order, StringBuilder extraColumns, List<Object> params, String k, Object v,
-        String[] sorts, int set) {
-      String t = "a" + set;
-      tables.append(MessageFormat.format(statementParts[STMT_TABLE_JOIN], t));
-
-      if (v instanceof Iterable<?>) {
-        for (Iterator<?> vi = ((Iterable<?>) v).iterator(); vi.hasNext();) {
-          Object viObj = vi.next();
-          
-          params.add(k);
-          params.add(viObj);
-          where.append(" (").append(MessageFormat.format(statementParts[STMT_WHERE], t)).append(")");
-
-          // as long as there are more add OR
-          if (vi.hasNext()) {
-            where.append(" OR");
-          }
-        }
-      } else {
-        params.add(k);
-        params.add(v);
-        where.append(" (").append(MessageFormat.format(statementParts[STMT_WHERE], t)).append(")");
-      }
-
-      // add in sorting based on the table ref and value
-      if (k.equals(sorts[0])) {
-        order.append(MessageFormat.format(statementParts[STMT_ORDER], t, sorts[1]));
-        if ( statementParts.length > STMT_EXTRA_COLUMNS ) {
-            extraColumns.append(MessageFormat.format(statementParts[STMT_EXTRA_COLUMNS], t));
-        }
-      }
-      return set+1;
-    }
     
     public DisposableIterator<Map<String, Object>> listAll(String keySpace, final String columnFamily) throws StorageClientException {
         String[] keys = new String[] { "list-all." + keySpace + "." + columnFamily,
@@ -1307,7 +791,6 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
             // pass control to the iterator.
             final PreparedStatement pst = tpst;
             final ResultSet rs = trs;
-            final ResultSetMetaData rsmd = rs.getMetaData();
             tpst = null;
             trs = null;
             return registerDisposable(new PreemptiveIterator<Map<String, Object>>() {
@@ -1397,7 +880,7 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
 
    }
 
-    private void dec(String key) {
+    void dec(String key) {
         AtomicInteger cn = counters.get(key);
         if (cn == null) {
             LOGGER.warn("Never Statement/ResultSet Created Counter {} ", key);
@@ -1406,7 +889,7 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
         }
     }
 
-    private void inc(String key) {
+    void inc(String key) {
         AtomicInteger cn = counters.get(key);
         if (cn == null) {
             cn = new AtomicInteger();
@@ -1453,5 +936,141 @@ private static final String INVALID_DATA_ERROR = "Data invalid for storage.";
                 }
             }
         }
+    }
+
+    public Map<String, String> syncIndexColumns() throws StorageClientException, SQLException {
+        checkClosed();
+        String selectColumns = getSql(SQL_INDEX_COLUMN_NAME_SELECT);
+        String insertColumns = getSql(SQL_INDEX_COLUMN_NAME_INSERT);
+        String updateTable = getSql("alter-widestring-table");
+        String updateIndexes = getSql("index-widestring-table");
+        if ( selectColumns == null || insertColumns == null ) {
+            LOGGER.warn("Using Key Value Pair Tables for indexing ");
+            LOGGER.warn("     This will cause scalability problems eventually, please see KERN-1957 ");
+            LOGGER.warn("     To fix, port your SQL Configuration file to use a wide index table. ");
+            return null; // no wide column support in this JDBC config.
+        }
+        PreparedStatement selectColumnsPst = null;
+        PreparedStatement insertColumnsPst = null;
+        ResultSet rs = null;
+        Connection connection = jcbcStorageClientConnection.getConnection();
+        Statement statement = null;
+        try {
+            selectColumnsPst = connection.prepareStatement(selectColumns);
+            insertColumnsPst = connection.prepareStatement(insertColumns);
+            statement = connection.createStatement();
+            rs = selectColumnsPst.executeQuery();
+            Map<String, String> cnames = Maps.newHashMap();  
+            Set<String> usedColumns = Sets.newHashSet();  
+            while(rs.next()) {
+                String columnFamily = rs.getString(1);
+                String column = rs.getString(2);
+                String columnName = rs.getString(3);
+                cnames.put(columnFamily+":"+column, columnName);
+                usedColumns.add(columnFamily+":"+columnName);
+            }
+            // maxCols contiains the max col number for each cf.
+            // cnames contains a map of column Families each containing a map of columns with numbers.
+            
+            for (String k : Sets.union(indexColumns, AUTO_INDEX_COLUMNS)) {
+                String[] cf = StringUtils.split(k,":",2);
+                if ( !cnames.containsKey(k) ) {
+                    String cv = makeNameSafeSQL(cf[1]);
+                    if ( usedColumns.contains(cf[0]+":"+cv)) {
+                        LOGGER.info(
+                                "Column already exists, please provide explicit mapping indexing {}  already used column {} ",
+                                k, cv);
+                        throw new StorageClientException(
+                                "Column already exists, please provide explicit mapping indexing ["
+                                        + k + "]  already used column [" + cv + "]");
+                    }
+                    insertColumnsPst.clearParameters();
+                    insertColumnsPst.setString(1, cf[0]);
+                    insertColumnsPst.setString(2, cf[1]);
+                    insertColumnsPst.setString(3, cv);
+                    insertColumnsPst.executeUpdate();
+                    cnames.put(k, cv);
+                    usedColumns.add(cf[0]+":"+cv);
+                    try {
+                        statement.executeUpdate(MessageFormat.format(updateTable, cf[0], cv));
+                        LOGGER.info("Added Index Column OK    {}   Table:{} Column:{} ",
+                                new Object[] { k, cf[0], cv });
+                    } catch (SQLException e) {
+                        LOGGER.warn(
+                                "Added Index Column Error    {}   Table:{} Column:{} Cause:{} ",
+                                new Object[] { k, cf[0], cv, e.getMessage() });
+                        LOGGER.warn("SQL is {} ",MessageFormat.format(updateTable, cf[0], cv));
+                        throw new StorageClientException(e.getMessage(),e);
+                    }
+                    try {
+                        statement.executeUpdate(MessageFormat.format(updateIndexes, cf[0], cv));
+                        LOGGER.info("Added Index Column OK    {}   Table:{} Column:{} ",
+                                new Object[] { k, cf[0], cv });
+                    } catch (SQLException e) {
+                        LOGGER.warn(
+                                "Added Index Column Error    {}   Table:{} Column:{} Cause:{} ",
+                                new Object[] { k, cf[0], cv, e.getMessage() });
+                        LOGGER.warn("SQL is {} ",MessageFormat.format(updateIndexes, cf[0], cv));
+                        throw new StorageClientException(e.getMessage(),e);
+                    }
+                }
+            }
+            // sync done, now create a quick lookup table to extract the storage column for any column name, 
+            Builder<String, String> b = ImmutableMap.builder();
+            for (Entry<String,String> e : cnames.entrySet()) {
+                b.put(e.getKey(), e.getValue().toString());
+                LOGGER.info("Column Config {} maps to {} ",e.getKey(), e.getValue());
+            }
+            
+            
+            
+            return b.build();
+        } finally {
+            if ( rs != null ) {
+                try {
+                    rs.close();
+                } catch ( SQLException e ) {
+                    LOGGER.debug(e.getMessage(),e);
+                }
+            }
+            if ( selectColumnsPst != null ) {
+                try {
+                    selectColumnsPst.close();
+                } catch ( SQLException e ) {
+                    LOGGER.debug(e.getMessage(),e);
+                }
+            }
+            if ( insertColumnsPst != null ) {
+                try {
+                    insertColumnsPst.close();
+                } catch ( SQLException e ) {
+                    LOGGER.debug(e.getMessage(),e);
+                }
+            }
+        }
+    }
+
+    private String makeNameSafeSQL(String name) {
+        if ( COLUMN_NAME_MAPPING.containsKey(name)) {
+            return COLUMN_NAME_MAPPING.get(name);
+        }
+        char[] c = name.toCharArray();
+        for(int i = 0; i < c.length; i++) {
+            if ( !Character.isLetterOrDigit(c[i]) ) {
+                c[i] = '_';
+            }
+        }
+        if ( c[0] == '_') {
+            c[0] = 'X';
+        }
+        return new String(c);
+    }
+
+    public long getSlowQueryThreshold() {
+        return slowQueryThreshold;
+    }
+
+    public long getVerySlowQueryThreshold() {
+        return verySlowQueryThreshold;
     }
 }
