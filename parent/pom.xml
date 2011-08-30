@@ -95,7 +95,7 @@
      </plugin>
     </plugins>
   </build>
-  <profiles>     
+  <profiles>
    <profile>
       <id>redeploy</id>
       <build>
@@ -162,39 +162,26 @@
 <!-- D I S T R I B U T I O N M A N A G E M E N T -->
 <!-- ====================================================================== -->
   <distributionManagement>
-    <downloadUrl>http://www2.caret.cam.ac.uk/maven2/</downloadUrl>
+    <downloadUrl>http://source.sakaiproject.org/maven2/</downloadUrl>
     <snapshotRepository>
-       <uniqueVersion>false</uniqueVersion>
-       <id>caret-maven-snapshots-scp</id>
-       <name>Caret snapshot Repo</name>
-       <url>scp://catnep.caret.cam.ac.uk/home/www2/htdocs/maven2dev/</url>
-       <layout>default</layout>
+      <id>myberkeley-snapshots</id>
+      <name>MyBerkeley Snapshots</name>
+      <url>dav:http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley-snapshots/</url>
+      <uniqueVersion>false</uniqueVersion>
     </snapshotRepository>
     <repository>
+      <id>myberkeley</id>
+      <name>MyBerkeley</name>
+      <url>dav:http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley/</url>
       <uniqueVersion>false</uniqueVersion>
-      <id>caret-maven2-scp</id>
-      <name>Caret maven2 repository</name>
-      <url>scp://catnep.caret.cam.ac.uk/home/www2/htdocs/maven2/</url>
-      <layout>default</layout>
     </repository>
     <site>
-      <id>caret-site</id>
-      <name>Caret release Site</name>
-      <url>scp://catnep.caret.cam.ac.uk/home/www2/htdocs/release/nakamura/${project.version}</url>
+      <id>sakai-site</id>
+      <name>Sakai release Site</name>
+      <url>scp://source.sakaiproject.org/var/www/html/release/nakamura/${project.version}</url>
     </site>
   </distributionManagement>
   <repositories>
-    <repository>
-      <id>caret-releases</id>
-      <name>Caret Releases</name>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <url>http://www2.caret.cam.ac.uk/maven2/</url>
-    </repository>
     <repository>
       <id>sakai-releases</id>
       <name>Sakai Releases</name>
@@ -205,6 +192,29 @@
         <enabled>false</enabled>
       </snapshots>
       <url>http://source.sakaiproject.org/maven2/</url>
+    </repository>
+    <repository>
+      <id>myberkeley-releases</id>
+      <name>MyBerkeley Releases</name>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <url>http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley/</url>
+    </repository>
+    <repository>
+      <id>myberkeley-snapshots</id>
+      <name>MyBerkeley Snapshots</name>
+      <layout>default</layout>
+      <url>http://svn.media.berkeley.edu/nexus/content/repositories/myberkeley-snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
 </project>
