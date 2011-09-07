@@ -102,7 +102,7 @@ public class MemoryStorageClientPool extends AbstractClientConnectionPool {
     @Activate
     public void activate(Map<String, Object> properties) throws ClassNotFoundException {
         this.properties = properties;
-        store = Maps.newConcurrentHashMap();
+        store = Maps.newConcurrentMap();
         super.activate(properties);
     }
 
