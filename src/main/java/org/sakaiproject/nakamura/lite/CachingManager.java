@@ -65,6 +65,9 @@ public abstract class CachingManager {
         if (sharedCache != null && sharedCache.containsKey(cacheKey)) {
             CacheHolder cacheHolder = sharedCache.get(cacheKey);
             if (cacheHolder != null) {
+                if (cacheHolder instanceof DeletedCacheMarker) {
+                  return null;
+                }
                 m = cacheHolder.get();
                 LOGGER.debug("Cache Hit {} {} {} ",new Object[]{cacheKey, cacheHolder, m});
                 hit++;
@@ -126,9 +129,28 @@ public abstract class CachingManager {
     protected void putCached(String keySpace, String columnFamily, String key,
             Map<String, Object> encodedProperties, boolean probablyNew)
             throws StorageClientException {
-        LOGGER.debug("Saving {} {} {} {} ", new Object[] { keySpace, columnFamily, key, encodedProperties});
-        client.insert(keySpace, columnFamily, key, encodedProperties, probablyNew);
-        removeFromCache(keySpace, columnFamily, key);
+        if (!wasDeleted(keySpace, columnFamily, key)) {
+            LOGGER.debug("Saving {} {} {} {} ", new Object[] { keySpace, columnFamily, key, encodedProperties});
+            client.insert(keySpace, columnFamily, key, encodedProperties, probablyNew);
+            removeFromCache(keySpace, columnFamily, key);
+        }
+    }
+
+    private boolean wasDeleted(String keySpace, String columnFamily, String key) {
+        return (sharedCache != null && sharedCache.get(getCacheKey(keySpace, columnFamily, key)) instanceof DeletedCacheMarker);
+    }
+
+    protected void markDeleted(String keySpace, String columnFamily, String key) {
+        if (sharedCache != null) {
+          String cacheKey = getCacheKey(keySpace, columnFamily, key);
+          sharedCache.put(cacheKey, new DeletedCacheMarker());
+        }
+    }
+
+    private class DeletedCacheMarker extends CacheHolder {
+        public DeletedCacheMarker() {
+          super(null);
+        }
     }
 
 }
