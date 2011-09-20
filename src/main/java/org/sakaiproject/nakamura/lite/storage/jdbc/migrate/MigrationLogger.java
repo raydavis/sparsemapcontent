@@ -19,70 +19,58 @@
 package org.sakaiproject.nakamura.lite.storage.jdbc.migrate;
 
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import org.sakaiproject.nakamura.api.lite.PropertyMigrator;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
+import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 
 import java.util.Date;
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
 
 public class MigrationLogger {
 
-    public static final String LOG_PATH = "/system/migrationlog";
+    public static final String LOG_ROOT_PATH = "/system/migrationlog";
 
     public static final String DATE_READABLE = "migrationDate";
 
     public static final String DATE_MS = "migrationEpoch";
 
-    private Map<String, Map<String, Object>> logMap = Maps.newHashMap();
-
-    private Set<String> seenClasses = Sets.newHashSet();
-
-    private Content logContent;
+    private Map<String, Content> logMap = Maps.newHashMap();
 
     public MigrationLogger(Session session) throws StorageClientException, AccessDeniedException {
-        this.logContent = session.getContentManager().get(LOG_PATH);
-        if (this.logContent == null) {
-            this.logContent = new Content(LOG_PATH, new HashMap<String, Object>());
-        } else {
-            Map<String, Object> classLogs = this.logContent.getProperties();
-            for (String className : classLogs.keySet()) {
-                Object val = classLogs.get(className);
-                if (val instanceof Map) {
-                    seenClasses.add(className);
-                }
-            }
+        Iterator<Content> savedLogs = session.getContentManager().listChildren(LOG_ROOT_PATH);
+        while ( savedLogs.hasNext() ) {
+            Content log = savedLogs.next();
+            logMap.put(StorageClientUtils.getObjectName(log.getPath()), log);
         }
     }
 
     public void log(PropertyMigrator migrator) {
         String className = migrator.getClass().getName();
-        Map<String, Object> classMap = this.logMap.get(className);
-        if (classMap == null) {
-            classMap = Maps.newHashMap();
-        }
         long currentMS = System.currentTimeMillis();
-        classMap.put(DATE_READABLE, new Date(currentMS));
-        classMap.put(DATE_MS, currentMS);
-        logMap.put(className, classMap);
-        seenClasses.add(className);
+
+        Map<String, Object> logData = Maps.newHashMap();
+        logData.put(DATE_READABLE, new Date(currentMS).toString());
+        logData.put(DATE_MS, currentMS);
+
+        Content logContent = this.logMap.get(className);
+        if (logContent == null) {
+            logContent = new Content(StorageClientUtils.newPath(LOG_ROOT_PATH, className), logData);
+            this.logMap.put(className, logContent);
+        }
     }
 
     public void write(Session session) throws StorageClientException, AccessDeniedException {
-        for (String className : this.logMap.keySet()) {
-            Map<String, Object> rowMap = this.logMap.get(className);
-            this.logContent.setProperty(className, rowMap);
+        for (Content content : this.logMap.values() ) {
+          session.getContentManager().update(content);
         }
-        session.getContentManager().update(this.logContent);
     }
 
     public boolean hasMigratorRun(PropertyMigrator migrator) {
-        return seenClasses.contains(migrator.getClass().getName());
+        return logMap.get(migrator.getClass().getName()) != null;
     }
 
 }

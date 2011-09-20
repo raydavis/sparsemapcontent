@@ -163,12 +163,20 @@ public class MigrationServiceImpl implements MigrationService {
                         LOGGER.info("Processed {}% remaining {} ", new Object[]{((currentRow * 100) / total), total - currentRow});
                     }
                     boolean rowChanged = processRow(session, keySpace, columnFamily, migrators,
-                            keyExtractor, row, migrationLogger, indexer, statementCache, dryRun, verify);
+                            keyExtractor, row, indexer, statementCache, dryRun, verify);
                     if (rowChanged) {
                         changedRows++;
                     }
                 }
+
+                // log migrators that we ran
+                for ( PropertyMigrator migrator : migrators ) {
+                  migrationLogger.log(migrator);
+                }
+
+                // persist migration log
                 migrationLogger.write(session);
+
                 LOGGER.info("Finished processing {} total objects in column family {}, {} rows were updated",
                         new Object[]{total, columnFamily, changedRows});
 
@@ -180,7 +188,6 @@ public class MigrationServiceImpl implements MigrationService {
 
     private boolean processRow(SessionImpl session, String keySpace, String columnFamily,
                                PropertyMigrator[] migrators, KeyExtractor keyExtractor, SparseRow row,
-                               MigrationLogger migrationLogger,
                                Indexer indexer, Map<String, PreparedStatement> statementCache,
                                boolean dryRun, boolean verify)
             throws StorageClientException, SQLException {
@@ -200,7 +207,6 @@ public class MigrationServiceImpl implements MigrationService {
             }
             rowChanged = thisMigratorChanged || rowChanged;
             if (thisMigratorChanged) {
-                migrationLogger.log(migrator);
                 LOGGER.info("Migrator {} changed row {} with verify {}, properties are now {}",
                         new Object[]{migrator.getClass().getName(), rowID, verify, properties});
             }

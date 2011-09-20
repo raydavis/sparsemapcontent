@@ -106,7 +106,7 @@ public class MigrationServiceImplTest {
         Assert.assertNull(updated3.getProperty("newprop1"));
 
         // and check that it all got logged
-        Content log = session.getContentManager().get(MigrationLogger.LOG_PATH);
+        Content log = session.getContentManager().get(MigrationLogger.LOG_ROOT_PATH);
         Assert.assertNotNull(log);
         LOGGER.info(log.toString());
     }

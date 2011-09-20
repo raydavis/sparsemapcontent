@@ -22,6 +22,7 @@ import junit.framework.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.sakaiproject.nakamura.api.lite.PropertyMigrator;
+import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 import org.sakaiproject.nakamura.lite.SessionImpl;
@@ -64,18 +65,19 @@ public class MigrationLoggerTest {
         migrationLogger.log(migrator);
 
         migrationLogger.write(session);
-        Content logContent = session.getContentManager().get(MigrationLogger.LOG_PATH);
+        Content logContent = session.getContentManager().get(
+                StorageClientUtils.newPath(MigrationLogger.LOG_ROOT_PATH, this.migrator.getClass().getName()));
         LOGGER.info(logContent.toString());
-        Map<String, Object> classLog = (Map<String, Object>) logContent.getProperty(this.migrator.getClass().getName());
-        Assert.assertNotNull(classLog);
-        Assert.assertNotNull(classLog.get(MigrationLogger.DATE_READABLE));
-        Assert.assertNotNull(classLog.get(MigrationLogger.DATE_MS));
+        Assert.assertNotNull(logContent);
+        Assert.assertNotNull(logContent.getProperty(MigrationLogger.DATE_READABLE));
+        Assert.assertNotNull(logContent.getProperty(MigrationLogger.DATE_MS));
         Assert.assertTrue(migrationLogger.hasMigratorRun(this.migrator));
 
         // try a second log-and-write cycle to make sure old data stays
         migrationLogger.log(migrator);
         migrationLogger.write(session);
-        logContent = session.getContentManager().get(MigrationLogger.LOG_PATH);
+        logContent = session.getContentManager().get(
+                StorageClientUtils.newPath(MigrationLogger.LOG_ROOT_PATH, this.migrator.getClass().getName()));
         LOGGER.info(logContent.toString());
         Assert.assertTrue(migrationLogger.hasMigratorRun(this.migrator));
     }
