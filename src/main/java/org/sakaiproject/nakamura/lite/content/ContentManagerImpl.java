@@ -368,6 +368,8 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         Map<String, Object> originalProperties = ImmutableMap.of();
 
         if (content.isNew()) {
+            // path may have been used before, so invalidate cache
+            removeFromCache(keySpace, contentColumnFamily, path);
             // create the parents if necessary
             if (!StorageClientUtils.isRoot(path)) {
                 String parentPath = StorageClientUtils.getParentObjectPath(path);
@@ -444,7 +446,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             Map<String, Object> content = getCached(keySpace, contentColumnFamily, uuid);
             Map<String, Object> contentBeforeDelete = ImmutableMap.copyOf(content);
             String resourceType = (String) content.get("sling:resourceType");
-            removeFromCache(keySpace, contentColumnFamily, path);
+            markDeleted(keySpace, contentColumnFamily, path);
             client.remove(keySpace, contentColumnFamily, path);
             putCached(keySpace, contentColumnFamily, uuid,
                     ImmutableMap.of(DELETED_FIELD, (Object) TRUE), false);
