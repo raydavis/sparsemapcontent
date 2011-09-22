@@ -175,7 +175,9 @@ public class MigrationServiceImpl implements MigrationService {
                 }
 
                 // persist migration log
-                migrationLogger.write(session);
+                if ( ! dryRun ) {
+                    migrationLogger.write(session);
+                }
 
                 LOGGER.info("Finished processing {} total objects in column family {}, {} rows were updated",
                         new Object[]{total, columnFamily, changedRows});
