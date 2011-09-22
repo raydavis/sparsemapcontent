@@ -26,8 +26,6 @@ import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 import org.sakaiproject.nakamura.lite.SessionImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
@@ -35,7 +33,7 @@ public class MigrationLoggerTest {
 
     private SessionImpl session;
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(MigrationLoggerTest.class);
+    private MigrationLogger migrationLogger;
 
     private PropertyMigrator migrator = new PropertyMigrator() {
         public boolean migrate(String rowID, Map<String, Object> properties) {
@@ -53,21 +51,19 @@ public class MigrationLoggerTest {
 
     @Before
     public void setUp() throws Exception {
-        BaseMemoryRepository baseMemoryRepository = new BaseMemoryRepository();
-        this.session = (SessionImpl) baseMemoryRepository.getRepository().loginAdministrative();
-
+        this.migrationLogger = new MigrationLogger();
+        this.migrationLogger.repository = new BaseMemoryRepository().getRepository();
+        this.session = (SessionImpl) this.migrationLogger.repository.loginAdministrative();
     }
 
     @SuppressWarnings({"unchecked"})
     @Test
     public void testLogAndWrite() throws Exception {
-        MigrationLogger migrationLogger = new MigrationLogger(this.session);
-        migrationLogger.log(migrator);
 
-        migrationLogger.write(session);
+        migrationLogger.log(migrator);
+        migrationLogger.write();
         Content logContent = session.getContentManager().get(
                 StorageClientUtils.newPath(MigrationLogger.LOG_ROOT_PATH, this.migrator.getClass().getName()));
-        LOGGER.info(logContent.toString());
         Assert.assertNotNull(logContent);
         Assert.assertNotNull(logContent.getProperty(MigrationLogger.DATE_READABLE));
         Assert.assertNotNull(logContent.getProperty(MigrationLogger.DATE_MS));
@@ -75,10 +71,7 @@ public class MigrationLoggerTest {
 
         // try a second log-and-write cycle to make sure old data stays
         migrationLogger.log(migrator);
-        migrationLogger.write(session);
-        logContent = session.getContentManager().get(
-                StorageClientUtils.newPath(MigrationLogger.LOG_ROOT_PATH, this.migrator.getClass().getName()));
-        LOGGER.info(logContent.toString());
+        migrationLogger.write();
         Assert.assertTrue(migrationLogger.hasMigratorRun(this.migrator));
     }
 }

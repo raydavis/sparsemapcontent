@@ -19,15 +19,19 @@
 package org.sakaiproject.nakamura.lite.storage.jdbc.migrate;
 
 import com.google.common.collect.Maps;
+import org.apache.felix.scr.annotations.Reference;
 import org.sakaiproject.nakamura.api.lite.PropertyMigrator;
-import org.sakaiproject.nakamura.api.lite.Session;
+import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
+import org.sakaiproject.nakamura.lite.SessionImpl;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class MigrationLogger {
@@ -40,13 +44,8 @@ public class MigrationLogger {
 
     private Map<String, Content> logMap = Maps.newHashMap();
 
-    public MigrationLogger(Session session) throws StorageClientException, AccessDeniedException {
-        Iterator<Content> savedLogs = session.getContentManager().listChildren(LOG_ROOT_PATH);
-        while ( savedLogs.hasNext() ) {
-            Content log = savedLogs.next();
-            logMap.put(StorageClientUtils.getObjectName(log.getPath()), log);
-        }
-    }
+    @Reference
+    Repository repository;
 
     public void log(PropertyMigrator migrator) {
         String className = migrator.getClass().getName();
@@ -63,14 +62,53 @@ public class MigrationLogger {
         }
     }
 
-    public void write(Session session) throws StorageClientException, AccessDeniedException {
-        for (Content content : this.logMap.values() ) {
-          session.getContentManager().update(content);
+    public void write() throws StorageClientException, AccessDeniedException {
+        SessionImpl session = null;
+        try {
+            session = (SessionImpl) repository.loginAdministrative();
+            for (Content content : this.logMap.values() ) {
+              session.getContentManager().update(content);
+            }
+        } finally {
+            if ( session != null ) {
+                session.logout();
+            }
         }
     }
 
-    public boolean hasMigratorRun(PropertyMigrator migrator) {
+    public PropertyMigrator[] filterMigrators(PropertyMigrator[] migrators)
+            throws StorageClientException, AccessDeniedException{
+
+        readLogMapFromStore();
+
+        // filter out migrators that have already run
+        List<PropertyMigrator> filtered = new ArrayList<PropertyMigrator>(migrators.length);
+        for (PropertyMigrator migrator : migrators) {
+            if (!this.hasMigratorRun(migrator)) {
+                filtered.add(migrator);
+            }
+        }
+        return filtered.toArray(new PropertyMigrator[filtered.size()]);
+    }
+
+    boolean hasMigratorRun(PropertyMigrator migrator) {
         return logMap.get(migrator.getClass().getName()) != null;
+    }
+
+    private void readLogMapFromStore() throws StorageClientException, AccessDeniedException {
+        SessionImpl session = null;
+        try {
+            session = (SessionImpl) repository.loginAdministrative();
+            Iterator<Content> savedLogs = session.getContentManager().listChildren(LOG_ROOT_PATH);
+            while ( savedLogs.hasNext() ) {
+                Content log = savedLogs.next();
+                logMap.put(StorageClientUtils.getObjectName(log.getPath()), log);
+            }
+        } finally {
+            if ( session != null ) {
+                session.logout();
+            }
+        }
     }
 
 }

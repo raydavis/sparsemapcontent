@@ -44,9 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -86,6 +84,9 @@ public class MigrationServiceImpl implements MigrationService {
     @Reference
     Configuration configuration;
 
+    @Reference
+    MigrationLogger migrationLogger;
+
     public void doMigration(boolean dryRun, boolean verify) throws Exception {
 
         SessionImpl session = null;
@@ -93,7 +94,6 @@ public class MigrationServiceImpl implements MigrationService {
         try {
             session = (SessionImpl) repository.loginAdministrative();
             String keySpace = configuration.getKeySpace();
-            MigrationLogger migrationLogger = new MigrationLogger(session);
 
             // make sure we're dealing with a supported storage client
             // TODO: storage clients other than JDBC don't have a way to page over big result sets -- find a way
@@ -111,7 +111,7 @@ public class MigrationServiceImpl implements MigrationService {
 
             // find migrators we need to run
             PropertyMigrator[] allMigrators = migratorTracker.getPropertyMigrators();
-            PropertyMigrator[] migratorsToRun = filterMigrators(allMigrators, migrationLogger);
+            PropertyMigrator[] migratorsToRun = this.migrationLogger.filterMigrators(allMigrators);
             LOGGER.info("Found {} total migrators, of which {} need to be run on keyspace {}, dry run is {}, verify is {}",
                     new Object[]{allMigrators.length, migratorsToRun.length, keySpace, dryRun, verify});
             for (PropertyMigrator migrator : migratorsToRun) {
@@ -121,15 +121,15 @@ public class MigrationServiceImpl implements MigrationService {
             if (migratorsToRun.length > 0) {
                 // process authorizables
                 processColumnFamily(session, keySpace, configuration.getAuthorizableColumnFamily(),
-                        migratorsToRun, AUTHORIZABLE_KEY_EXTRACTOR, migrationLogger, indexer, dryRun, verify);
+                        migratorsToRun, AUTHORIZABLE_KEY_EXTRACTOR, indexer, dryRun, verify);
 
                 // process regular content
                 processColumnFamily(session, keySpace, configuration.getContentColumnFamily(),
-                        migratorsToRun, CONTENT_KEY_EXTRACTOR, migrationLogger, indexer, dryRun, verify);
+                        migratorsToRun, CONTENT_KEY_EXTRACTOR, indexer, dryRun, verify);
 
                 // process acls
                 processColumnFamily(session, keySpace, configuration.getAclColumnFamily(),
-                        migratorsToRun, ACL_KEY_EXTRACTOR, migrationLogger, indexer, dryRun, verify);
+                        migratorsToRun, ACL_KEY_EXTRACTOR, indexer, dryRun, verify);
             }
 
         } finally {
@@ -145,7 +145,7 @@ public class MigrationServiceImpl implements MigrationService {
 
     private void processColumnFamily(SessionImpl session, String keySpace,
                                      String columnFamily, PropertyMigrator[] migrators,
-                                     KeyExtractor keyExtractor, MigrationLogger migrationLogger,
+                                     KeyExtractor keyExtractor,
                                      Indexer indexer, boolean dryRun, boolean verify)
             throws StorageClientException, AccessDeniedException, SQLException {
         long total = session.getClient().allCount(keySpace, columnFamily);
@@ -171,12 +171,12 @@ public class MigrationServiceImpl implements MigrationService {
 
                 // log migrators that we ran
                 for ( PropertyMigrator migrator : migrators ) {
-                  migrationLogger.log(migrator);
+                  this.migrationLogger.log(migrator);
                 }
 
                 // persist migration log
                 if ( ! dryRun ) {
-                    migrationLogger.write(session);
+                    this.migrationLogger.write();
                 }
 
                 LOGGER.info("Finished processing {} total objects in column family {}, {} rows were updated",
@@ -232,17 +232,6 @@ public class MigrationServiceImpl implements MigrationService {
         }
 
         return rowChanged;
-    }
-
-    private PropertyMigrator[] filterMigrators(PropertyMigrator[] migrators, MigrationLogger logger) {
-        // filter out migrators that have already run
-        List<PropertyMigrator> filtered = new ArrayList<PropertyMigrator>(migrators.length);
-        for (PropertyMigrator migrator : migrators) {
-            if (!logger.hasMigratorRun(migrator)) {
-                filtered.add(migrator);
-            }
-        }
-        return filtered.toArray(new PropertyMigrator[filtered.size()]);
     }
 
     private interface KeyExtractor {

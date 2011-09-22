@@ -22,20 +22,17 @@ import com.google.common.collect.ImmutableMap;
 import junit.framework.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 import org.sakaiproject.nakamura.api.lite.PropertyMigrator;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 import org.sakaiproject.nakamura.lite.ConfigurationImpl;
 import org.sakaiproject.nakamura.lite.SessionImpl;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class MigrationServiceImplTest {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(MigrationServiceImplTest.class);
 
     private MigrationServiceImpl migrationService;
 
@@ -75,6 +72,7 @@ public class MigrationServiceImplTest {
         this.migrationService.repository = baseMemoryRepository.getRepository();
         this.migrationService.configuration = new ConfigurationImpl();
         ((ConfigurationImpl) this.migrationService.configuration).activate(new HashMap<String, Object>());
+        this.migrationService.migrationLogger = Mockito.mock(MigrationLogger.class);
     }
 
     @Test
@@ -89,6 +87,10 @@ public class MigrationServiceImplTest {
         session.getContentManager().update(content2);
         Content content3 = new Content("/baz", ImmutableMap.of("somethingelse", (Object) "value1"));
         session.getContentManager().update(content3);
+
+        Mockito.when(this.migrationService.migrationLogger.filterMigrators(Mockito.<PropertyMigrator[]>any())).thenReturn(
+                new PropertyMigrator[] { this.migrator }
+        );
 
         // test the migrate method
         this.migrationService.doMigration(false, true);
@@ -105,10 +107,25 @@ public class MigrationServiceImplTest {
         Assert.assertNull(updated3.getProperty("prop1"));
         Assert.assertNull(updated3.getProperty("newprop1"));
 
-        // and check that it all got logged
-        Content log = session.getContentManager().get(MigrationLogger.LOG_ROOT_PATH);
-        Assert.assertNotNull(log);
-        LOGGER.info(log.toString());
+        // and check that it got logged
+        Mockito.verify(this.migrationService.migrationLogger, Mockito.times(2)).write();
+
     }
+
+    @Test
+    public void doDryRunMigration() throws Exception {
+      this.migrationService.migratorTracker.bind(this.migrator);
+
+      Mockito.when(this.migrationService.migrationLogger.filterMigrators(Mockito.<PropertyMigrator[]>any())).thenReturn(
+              new PropertyMigrator[] { this.migrator }
+      );
+
+      // test the migrate method
+      this.migrationService.doMigration(true, true);
+
+      // and check that it does NOT get logged
+      Mockito.verify(this.migrationService.migrationLogger, Mockito.times(0)).write();
+
+  }
 
 }
