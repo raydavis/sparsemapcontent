@@ -19,7 +19,9 @@
 package org.sakaiproject.nakamura.lite.storage.jdbc.migrate;
 
 import com.google.common.collect.Maps;
+import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
+import org.apache.felix.scr.annotations.Service;
 import org.sakaiproject.nakamura.api.lite.PropertyMigrator;
 import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
@@ -34,6 +36,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+@Component(immediate = true, metatype = true)
+@Service(value = MigrationLogger.class)
 public class MigrationLogger {
 
     public static final String LOG_ROOT_PATH = "/system/migrationlog";
