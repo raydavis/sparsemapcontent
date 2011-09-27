@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -15,24 +15,18 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package org.sakaiproject.nakamura.lite.storage.jdbc.migrate;
 
-import org.sakaiproject.nakamura.api.lite.PropertyMigrator;
+package org.sakaiproject.nakamura.api.lite;
 
-/**
- * An internal API so that the MigrateContentComponent can exist disabled, but
- * when it starts bind to the PropertyMigratorTrackerService which is enabled
- * and will hold all the PropertyMigrators in the system.
- *
- * @author ieb
- *
- */
-public interface PropertyMigratorTracker {
+@SuppressWarnings({"UnusedDeclaration"})
+public interface MigrationService {
 
-    PropertyMigrator[] getPropertyMigrators();
-
-    void bind(PropertyMigrator pm);
-
-    void unbind(PropertyMigrator pm);
+  /**
+   * Perform upgrades by running the upgrade() methods of all registered PropertyMigrator instances.
+   * @param dryRun True if you want to run the upgrade without actually changing data; false if you want data changes saved.
+   * @param verify True if you want to check upgraded data using the PropertyMigrator.verify() method.
+   * @throws Exception if an unrecoverable error occurred.
+   */
+  void doMigration(boolean dryRun, boolean verify) throws Exception;
 
 }
