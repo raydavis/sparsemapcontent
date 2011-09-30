@@ -119,6 +119,14 @@ public interface AuthorizableManager {
      * @return the user bound to this authorizable manager.
      */
     User getUser();
+
+    /**
+     * Put the authorizable manager into maintenance mode to allow an admin session to gain control over protected content properties.
+     * Only use this in migration. Never use it in runtime production as you will risk breaking the referential integrity
+     * of the internal content model. Also, please ensure that your code matches the same content model being used by
+     * the target AuthorizableManagerImpl, before you enable maintenance mode. Failure to do so may destroy your content.
+     */
+    void setMaintenanceMode(boolean maintenanceMode);
     
     
     /**
