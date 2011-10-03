@@ -37,6 +37,7 @@ import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
 import org.sakaiproject.nakamura.lite.storage.SparseMapRow;
 import org.sakaiproject.nakamura.lite.storage.SparseRow;
 import org.sakaiproject.nakamura.lite.storage.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.StorageClientListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -263,7 +264,7 @@ public class MemoryStorageClient implements StorageClient {
                    }
                 }
                 nextMap = null;
-                close();
+                super.close();
                 return false;
             }
 
@@ -309,7 +310,7 @@ public class MemoryStorageClient implements StorageClient {
                    }
                 }
                 nextRow = null;
-                close();
+                super.close();
                 return false;
             }
 
@@ -328,6 +329,11 @@ public class MemoryStorageClient implements StorageClient {
           count++;
         }
         return count;
+    }
+
+    public void setStorageClientListener(StorageClientListener storageClientListener) {
+        // TODO Auto-generated method stub
+        
     }
 
 
