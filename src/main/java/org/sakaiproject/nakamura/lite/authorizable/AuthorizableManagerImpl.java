@@ -379,7 +379,6 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
             m.put(Authorizable.AUTHORIZABLE_TYPE_FIELD, Authorizable.USER_VALUE);
             properties = m;
         }
-        removeFromCache(keySpace, authorizableColumnFamily, authorizableId);
         return createAuthorizable(authorizableId, authorizableName, password, properties);
     }
 
@@ -394,7 +393,6 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
             m.put(Authorizable.AUTHORIZABLE_TYPE_FIELD, Authorizable.GROUP_VALUE);
             properties = m;
         }
-        removeFromCache(keySpace, authorizableColumnFamily, authorizableId);
         return createAuthorizable(authorizableId, authorizableName, null, properties);
     }
 
@@ -403,8 +401,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         accessControlManager.check(Security.ZONE_ADMIN, authorizableId, Permissions.CAN_DELETE);
         Authorizable authorizable = findAuthorizable(authorizableId);
         if (authorizable != null){
-            markDeleted(keySpace, authorizableColumnFamily, authorizableId);
-            client.remove(keySpace, authorizableColumnFamily, authorizableId);
+            removeCached(keySpace, authorizableColumnFamily, authorizableId);
             storeListener.onDelete(Security.ZONE_AUTHORIZABLES, authorizableId, accessControlManager.getCurrentUserId(), authorizable.getOriginalProperties());
         }
     }

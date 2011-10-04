@@ -21,6 +21,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Authenticator;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
+import org.sakaiproject.nakamura.api.lite.lock.LockManager;
 
 /**
  * A lightweight container bound to the user that will maintain state associated
@@ -56,6 +57,9 @@ public interface Session {
      * @throws StorageClientException
      */
     ContentManager getContentManager() throws StorageClientException;
+    
+    
+    LockManager getLockManager() throws StorageClientException;
 
     /**
      * @return the userID that this session is bound to.
@@ -65,5 +69,17 @@ public interface Session {
     Authenticator getAuthenticator() throws StorageClientException;
 
     Repository getRepository();
+
+    /**
+     * Perform a commit on any pending operations.
+     */
+    void commit();
+
+    /**
+     * Add a commit handler for a certain key. Will replace any other commit handler of the same key.
+     * @param key
+     * @param commitHandler
+     */
+    void addCommitHandler(String key, CommitHandler commitHandler);
 
 }

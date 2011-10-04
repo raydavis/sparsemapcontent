@@ -17,7 +17,7 @@ CREATE TABLE  `css` (
   `cid` varchar(64) NOT NULL,
   `v` varchar(780) NOT NULL,
   PRIMARY KEY  (`id`),
-  KEY `rowkey` USING HASH (`rid`,`cid`),
+  KEY `rowkey`  (`rid`,`cid`),
   KEY `cid_locate_i` (`v`(255),`cid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
@@ -31,7 +31,7 @@ CREATE TABLE  `au_css` (
   `cid` varchar(64) NOT NULL,
   `v` varchar(780) NOT NULL,
   PRIMARY KEY  (`id`),
-  KEY `rowkey` USING HASH (`rid`,`cid`),
+  KEY `rowkey`  (`rid`,`cid`),
   KEY `cid_locate_i` (`v`(255),`cid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
@@ -44,7 +44,7 @@ CREATE TABLE  `cn_css` (
   `cid` varchar(64) NOT NULL,
   `v` varchar(780) NOT NULL,
   PRIMARY KEY  (`id`),
-  KEY `rowkey` USING HASH (`rid`,`cid`),
+  KEY `rowkey`  (`rid`,`cid`),
   KEY `cid_locate_i` (`v`(255),`cid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
@@ -58,8 +58,56 @@ CREATE TABLE  `ac_css` (
   `cid` varchar(64) NOT NULL,
   `v` varchar(780) NOT NULL,
   PRIMARY KEY  (`id`),
-  KEY `rowkey` USING HASH (`rid`,`cid`),
+  KEY `rowkey`  (`rid`,`cid`),
   KEY `cid_locate_i` (`v`(255),`cid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+####### DROP TABLE IF EXISTS `ac_css`;
+
+# Store just for Access Control
+CREATE TABLE  `lk_css` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `rid` varchar(32) NOT NULL,
+  `cid` varchar(64) NOT NULL,
+  `v` varchar(780) NOT NULL,
+  PRIMARY KEY  (`id`),
+  KEY `rowkey`  (`rid`,`cid`),
+  KEY `cid_locate_i` (`v`(255),`cid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE css_w (
+  `rid` varchar(32) NOT NULL,
+  primary key(`rid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE ac_css_w (
+  `rid` varchar(32) NOT NULL,
+  primary key(`rid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE au_css_w (
+  `rid` varchar(32) NOT NULL,
+  primary key(`rid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE cn_css_w (
+  `rid` varchar(32) NOT NULL,
+  primary key(`rid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+
+CREATE TABLE lk_css_w (
+  `rid` varchar(32) NOT NULL,
+  primary key(`rid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
+ 
+CREATE TABLE  css_wr (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `cf` varchar(32) NOT NULL,
+  `cid` varchar(64) NOT NULL,
+  `cname` varchar(64) NOT NULL,
+  primary key(`id`),
+  unique key css_r_cid (`cf`,`cid`),
+  unique key css_r_cnam (`cf`,`cname`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 
@@ -71,29 +119,35 @@ CREATE TABLE  `ac_css` (
 CREATE TABLE  `css_b` (
   `rid` varchar(32) NOT NULL,
   `b` blob,
-  primary key USING HASH (`rid`)
+  primary key (`rid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 # Central Store for Object bodies, serialized content maps rather than columns
 CREATE TABLE  `cn_css_b` (
   `rid` varchar(32) NOT NULL,
   `b` blob,
-  primary key USING HASH (`rid`)
+  primary key  (`rid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 # Central Store for Object bodies, serialized content maps rather than columns
 CREATE TABLE  `au_css_b` (
   `rid` varchar(32) NOT NULL,
   `b` blob,
-  primary key USING HASH (`rid`)
+  primary key  (`rid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 # Central Store for Object bodies, serialized content maps rather than columns
 CREATE TABLE  `ac_css_b` (
   `rid` varchar(32) NOT NULL,
   `b` blob,
-  primary key USING HASH (`rid`)
+  primary key  (`rid`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
+# Central Store for Object bodies, serialized content maps rather than columns
+CREATE TABLE  `lk_css_b` (
+  `rid` varchar(32) NOT NULL,
+  `b` blob,
+  primary key  (`rid`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci;
 
 

@@ -95,7 +95,7 @@ public class WideColumnIndexer extends AbstractIndexer {
                 Object[] valueMembers = (o instanceof Object[]) ? (Object[]) o : new Object[] { o };
                 if (shouldIndex(keySpace, columnFamily, k)) {
                     if (isColumnArray(keySpace, columnFamily, k)) {
-                        if (o instanceof RemoveProperty || o == null) {
+                        if (o instanceof RemoveProperty || o == null || valueMembers.length == 0) {
                             removeArrayColumns.add(k);
                         } else {
                             removeArrayColumns.add(k);
@@ -112,7 +112,8 @@ public class WideColumnIndexer extends AbstractIndexer {
                 }
             }
             
-            if (!StorageClientUtils.isRoot(key)) {
+            if (!StorageClientUtils.isRoot(key) 
+                    && getColumnName(keySpace, columnFamily, InternalContent.PARENT_HASH_FIELD) != null) {
                 String parent = StorageClientUtils.getParentObjectPath(key);
                 String hash = client.rowHash(keySpace, columnFamily, parent);
                 LOGGER.debug("Hash of {}:{}:{} is {} ", new Object[] { keySpace, columnFamily,
@@ -140,7 +141,9 @@ public class WideColumnIndexer extends AbstractIndexer {
                 nbatch++;
             }
             if (nbatch > 0) {
+                long t = System.currentTimeMillis();
                 removeStringColumn.executeBatch();
+                checkSlow(t, client.getSql(keySpace, columnFamily, JDBCStorageClient.SQL_REMOVE_STRING_COLUMN));
                 nbatch = 0;
             }
 
@@ -160,100 +163,105 @@ public class WideColumnIndexer extends AbstractIndexer {
                 }
             }
             if (nbatch > 0) {
+                long t = System.currentTimeMillis();
                 insertStringColumn.executeBatch();
+                checkSlow(t, client.getSql(keySpace, columnFamily, JDBCStorageClient.SQL_INSERT_STRING_COLUMN));
                 nbatch = 0;
             }
             if (removeColumns.size() == 0 && updateColumns.size() == 0) {
                 return; // nothing to add or remove, do nothing.
             }
 
-            // now update the wide column.
-            PreparedStatement wideColumnExists = client.getStatement(keySpace, columnFamily,
-                    SQL_EXISTS_WIDESTRING_ROW, rid, statementCache);
-            wideColumnExists.clearParameters();
-            wideColumnExists.setString(1, rid);
-            rs = wideColumnExists.executeQuery();
-            boolean exists = rs.next();
-            if (exists) {
-                if (removeColumns.size() > 0 && updateColumns.size() == 0) {
-                    // exists, columns to remove, none to update, therefore
-                    // delete row this assumes that the starting point is a
-                    // complete map
-                    PreparedStatement deleteWideStringColumn = client.getStatement(keySpace,
-                            columnFamily, SQL_DELETE_WIDESTRING_ROW, rid, statementCache);
-                    deleteWideStringColumn.clearParameters();
-                    deleteWideStringColumn.setString(1, rid);
-                    deleteWideStringColumn.execute();
-                    LOGGER.debug("Executed {} with {} ",deleteWideStringColumn, rid);
-                } else {
-                    //
-                    // build an update query, record does not exists, but there
-                    // is stuff to add
-                    String[] sqlParts = StringUtils.split(client.getSql(keySpace, columnFamily,
-                            SQL_UPDATE_WIDESTRING_ROW),";");
-                    StringBuilder setOperations = new StringBuilder();
-                    for (Entry<String, Object> e : updateColumns.entrySet()) {
-                        join(setOperations," ,").append(MessageFormat.format(sqlParts[1],
-                                getColumnName(keySpace, columnFamily, e.getKey())));
-                    }
-                    for (String toRemove : removeColumns) {
-                        join(setOperations," ,").append(MessageFormat.format(sqlParts[1],
-                                indexColumnsNames.get(columnFamily + ":" + toRemove)));
-                    }
-                    String finalSql = MessageFormat.format(sqlParts[0], setOperations);
-                    LOGGER.debug("Performing {} ",finalSql);
-                    PreparedStatement updateColumnPst = client.getStatement(finalSql,
-                            statementCache);
-                    updateColumnPst.clearWarnings();
-                    updateColumnPst.clearParameters();
-                    int i = 1;
-                    for (Entry<String, Object> e : updateColumns.entrySet()) {
-                        updateColumnPst.setString(i, e.getValue().toString());
-                        LOGGER.debug("   Param {} {} ",i,e.getValue().toString());
-                        i++;
-                    }
-                    for (String toRemove : removeColumns) {
-                        updateColumnPst.setNull(i, toSqlType(columnFamily, toRemove));
-                        LOGGER.debug("   Param {} NULL ",i);
-                        i++;
-                    }
-                    updateColumnPst.setString(i, rid);
-                    updateColumnPst.executeUpdate();
-                }
-            } else if (updateColumns.size() > 0) {
-                // part 0 is the final ,part 1 is the template for column names,
-                // part 2 is the template for parameters.
-                // insert into x ( columnsnames ) values ()
-                StringBuilder columnNames = new StringBuilder();
-                StringBuilder paramHolders = new StringBuilder();
+            if (removeColumns.size() > 0 && updateColumns.size() == 0) {
+                // exists, columns to remove, none to update, therefore
+                // delete row this assumes that the starting point is a
+                // complete map
+                PreparedStatement deleteWideStringColumn = client.getStatement(keySpace,
+                        columnFamily, SQL_DELETE_WIDESTRING_ROW, rid, statementCache);
+                deleteWideStringColumn.clearParameters();
+                deleteWideStringColumn.setString(1, rid);
+                long t = System.currentTimeMillis();
+                deleteWideStringColumn.execute();
+                checkSlow(t, client.getSql(keySpace, columnFamily, SQL_DELETE_WIDESTRING_ROW));
+                LOGGER.debug("Executed {} with {} ",deleteWideStringColumn, rid);
+            } else if ( updateColumns.size() > 0 || removeColumns.size() > 0) {
+                //
+                // build an update query, record does not exists, but there
+                // is stuff to add
+                String[] sqlParts = StringUtils.split(client.getSql(keySpace, columnFamily,
+                        SQL_UPDATE_WIDESTRING_ROW),";");
+                StringBuilder setOperations = new StringBuilder();
                 for (Entry<String, Object> e : updateColumns.entrySet()) {
-                    columnNames.append(" ,").append(getColumnName(keySpace, columnFamily, e.getKey()));
-                    paramHolders.append(" ,").append("?");
+                    join(setOperations," ,").append(MessageFormat.format(sqlParts[1],
+                            getColumnName(keySpace, columnFamily, e.getKey())));
                 }
-                String finalSql = MessageFormat.format(
-                        client.getSql(keySpace, columnFamily, SQL_INSERT_WIDESTRING_ROW),
-                        columnNames.toString(), paramHolders.toString());
-                LOGGER.debug("Insert SQL {} ",finalSql);
-                PreparedStatement insertColumnPst = client.getStatement(finalSql, statementCache);
-                insertColumnPst.clearWarnings();
-                insertColumnPst.clearParameters();
-                insertColumnPst.setString(1, rid);
-                int i = 2;
+                for (String toRemove : removeColumns) {
+                    join(setOperations," ,").append(MessageFormat.format(sqlParts[1],
+                            getColumnName(keySpace, columnFamily, toRemove)));
+                }
+                String finalSql = MessageFormat.format(sqlParts[0], setOperations);
+                LOGGER.debug("Performing {} ",finalSql);
+                PreparedStatement updateColumnPst = client.getStatement(finalSql,
+                        statementCache);
+                updateColumnPst.clearWarnings();
+                updateColumnPst.clearParameters();
+                int i = 1;
                 for (Entry<String, Object> e : updateColumns.entrySet()) {
+                    updateColumnPst.setString(i, e.getValue().toString());
                     LOGGER.debug("   Param {} {} ",i,e.getValue().toString());
-                    insertColumnPst.setString(i, e.getValue().toString());
                     i++;
                 }
-                insertColumnPst.executeUpdate();
-
+                for (String toRemove : removeColumns) {
+                    updateColumnPst.setNull(i, toSqlType(columnFamily, toRemove));
+                    LOGGER.debug("   Param {} NULL ",i);
+                    i++;
+                }
+                updateColumnPst.setString(i, rid);
+                long t = System.currentTimeMillis();
+                int n = updateColumnPst.executeUpdate();
+                checkSlow(t, finalSql);
+                if ( n == 0  ) {
+                    // part 0 is the final ,part 1 is the template for column names,
+                    // part 2 is the template for parameters.
+                    // insert into x ( columnsnames ) values ()
+                    StringBuilder columnNames = new StringBuilder();
+                    StringBuilder paramHolders = new StringBuilder();
+                    for (Entry<String, Object> e : updateColumns.entrySet()) {
+                        columnNames.append(" ,").append(getColumnName(keySpace, columnFamily, e.getKey()));
+                        paramHolders.append(" ,").append("?");
+                    }
+                    finalSql = MessageFormat.format(
+                            client.getSql(keySpace, columnFamily, SQL_INSERT_WIDESTRING_ROW),
+                            columnNames.toString(), paramHolders.toString());
+                    LOGGER.debug("Insert SQL {} ",finalSql);
+                    PreparedStatement insertColumnPst = client.getStatement(finalSql, statementCache);
+                    insertColumnPst.clearWarnings();
+                    insertColumnPst.clearParameters();
+                    insertColumnPst.setString(1, rid);
+                    i = 2;
+                    for (Entry<String, Object> e : updateColumns.entrySet()) {
+                        LOGGER.debug("   Param {} {} ",i,e.getValue().toString());
+                        insertColumnPst.setString(i, e.getValue().toString());
+                        i++;
+                    }
+                    t = System.currentTimeMillis();
+                    insertColumnPst.executeUpdate();
+                    checkSlow(t, finalSql);
+                }
             }
-
         } finally {
             if (rs != null) {
                 rs.close();
             }
         }
 
+    }
+
+    private void checkSlow(long t, String sql) {
+        t = System.currentTimeMillis() - t;
+        if ( t > 100 ) {
+            JDBCStorageClient.SQL_LOGGER.info("Slow Query {} {} ",t, sql);
+        }        
     }
 
     private String getColumnName(String keySpace, String columnFamily, String key) {
