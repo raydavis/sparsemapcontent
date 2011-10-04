@@ -44,7 +44,6 @@ import static org.sakaiproject.nakamura.lite.content.InternalContent.VERSION_NUM
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -370,8 +369,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         Map<String, Object> originalProperties = ImmutableMap.of();
 
         if (content.isNew()) {
-            // path may have been used before, so invalidate cache
-            removeCached(keySpace, contentColumnFamily, path);
             // create the parents if necessary
             if (!StorageClientUtils.isRoot(path)) {
                 String parentPath = StorageClientUtils.getParentObjectPath(path);
@@ -448,7 +445,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             Map<String, Object> content = getCached(keySpace, contentColumnFamily, uuid);
             Map<String, Object> contentBeforeDelete = ImmutableMap.copyOf(content);
             String resourceType = (String) content.get("sling:resourceType");
-            markDeleted(keySpace, contentColumnFamily, path);
             putCached(keySpace, contentColumnFamily, uuid,
                     ImmutableMap.of(DELETED_FIELD, (Object) TRUE), false);
             if (resourceType != null) {
