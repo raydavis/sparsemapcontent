@@ -42,6 +42,7 @@ public class MultiRowsMain {
     private String[] dictionary;
 
     public MultiRowsMain() {
+        System.err.println(this.getClass().getName());
     }
     
     public void deleteDb(String file) {
@@ -56,14 +57,12 @@ public class MultiRowsMain {
         Statement s = connection.createStatement();
         StringBuilder sql = new StringBuilder();
         sql.append("CREATE TABLE cn_css_index (");
-        sql.append("id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1),");
         sql.append("rid varchar(32) NOT NULL,");
         for ( int i = 0; i < columns; i++ ) {
             sql.append("v").append(i).append(" varchar(780),");
         }
-        sql.append("primary key(id))");
+        sql.append("primary key(rid))");
         s.execute(sql.toString());
-        s.execute("CREATE UNIQUE INDEX cn_css_index_i ON cn_css_index (rid)");
         for ( int i = 0; i < columns; i++) {
             s.execute("CREATE INDEX cn_css_index_v"+i+" ON cn_css_index (v"+i+")");
         }
@@ -94,6 +93,7 @@ public class MultiRowsMain {
         PreparedStatement p = connection.prepareStatement(sb.toString());
         MessageDigest sha1 = MessageDigest.getInstance("SHA1");
         SecureRandom sr = new SecureRandom();
+        long cst = System.currentTimeMillis();
         long cs = System.currentTimeMillis();
         ResultSet rs = connection.createStatement().executeQuery("select count(*) from cn_css_index");
         rs.next();
@@ -111,20 +111,24 @@ public class MultiRowsMain {
             }
             p.execute();
             
-            if ( i%100 == 0) {
-                long ct = System.currentTimeMillis();
-                System.err.println("Commit "+i+" "+(ct-cs)+" ms/100");
-                cs = ct;
+            if ( i%500 == 0) {
                 connection.commit();
+                long ct = System.currentTimeMillis();
+                System.err.print(""+i+","+(ct-cs)+",");
+                testSelect(2, 0, columns, 5000, true);
+                cs = System.currentTimeMillis();
+
             }
         }
+        long ctt = System.currentTimeMillis();
+        System.err.println("Commit "+records+" "+(ctt-cst)+" ms average time per row to insert "+((double)records/((double)ctt-(double)cst)));
         p.close();   
     }
     private void close() throws SQLException {
         connection.close();
     }
 
-    public void testSelect(int ncols, int sorts, int columns, long timeToLive) throws SQLException {
+    public void testSelect(int ncols, int sorts, int columns, long timeToLive, boolean csv) throws SQLException {
         StringBuilder sb = new StringBuilder();
         sb.append("select rid from cn_css_index where ");
         SecureRandom sr = new SecureRandom();
@@ -156,7 +160,9 @@ public class MultiRowsMain {
             }
             sb.append("v").append(cnums[sorts-1]);
         }
-        System.err.println(sb.toString());
+        if ( !csv) {
+          System.err.println(sb.toString());
+        }
         PreparedStatement p = connection.prepareStatement(sb.toString());
         long atstart = System.currentTimeMillis();
         long endTestTime = atstart+timeToLive;
@@ -178,21 +184,26 @@ public class MultiRowsMain {
         }
         double t = System.currentTimeMillis()-atstart;
         double a = t/nq;
-        System.err.println("Found "+arows+" in "+t+"ms executed "+nq+" queries");
-        System.err.println("Average "+(arows/nq)+" in "+a+"ms");
+        if ( csv ) {
+            System.err.println("" + (arows / nq) + "," + a );
+        } else {
+            System.err.println("Found " + arows + " in " + t + "ms executed " + nq + " queries");
+            System.err.println("Average " + (arows / nq) + " in " + a + "ms");
+        }
         
     }
     
     public static void main(String[] argv) throws SQLException, NoSuchAlgorithmException, UnsupportedEncodingException {
         MultiRowsMain tmr = new MultiRowsMain();
         String db = "target/testwide";
+        tmr.deleteDb(db);
         boolean exists = new File("target/testwide").exists();
         tmr.open(db);
         if ( ! exists ) {
             tmr.createTables(30);
         }
-        tmr.populateDictionary(1000);
-        tmr.loadTable(30, 200000);
+        tmr.populateDictionary(20);
+        tmr.loadTable(30, 10000);
         tmr.testSelect(1, 0, 30, 5000);
         tmr.testSelect(2, 0, 30, 5000);
         tmr.testSelect(3, 0, 30, 5000);
@@ -209,6 +220,10 @@ public class MultiRowsMain {
         tmr.testSelect(4, 2, 30, 5000);
         tmr.testSelect(5, 2, 30, 5000);
         tmr.close();
+    }
+
+    private void testSelect(int i, int j, int k, int l) throws SQLException {
+        testSelect(i, j, k, l, false);
     }
 
     

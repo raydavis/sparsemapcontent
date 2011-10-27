@@ -44,7 +44,6 @@ import static org.sakaiproject.nakamura.lite.content.InternalContent.VERSION_NUM
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -232,7 +231,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (structure != null && structure.size() > 0) {
             String contentId = (String)structure.get(STRUCTURE_UUID_FIELD);
             Map<String, Object> content = getCached(keySpace, contentColumnFamily, contentId);
-            if (content != null && content.size() > 0) {
+            if (content != null && content.size() > 0 && !TRUE.equals(content.get(DELETED_FIELD))) {
                 Content contentObject = new Content(path, content);
                 ((InternalContent) contentObject).internalize(this, false);
                 return contentObject;
@@ -270,7 +269,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 if  (content == null) {
                     // this is over the top as a disposable iterator should close auto
                     childContent.close();
-                    close();
+                    super.close();
                     return false;
                 }
                 return true;
@@ -314,7 +313,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 }
                 LOGGER.debug("No more");
                 childPath = null;
-                close();
+                super.close();
                 return false;
             }
 
@@ -370,8 +369,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         Map<String, Object> originalProperties = ImmutableMap.of();
 
         if (content.isNew()) {
-            // path may have been used before, so invalidate cache
-            removeFromCache(keySpace, contentColumnFamily, path);
             // create the parents if necessary
             if (!StorageClientUtils.isRoot(path)) {
                 String parentPath = StorageClientUtils.getParentObjectPath(path);
@@ -448,8 +445,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             Map<String, Object> content = getCached(keySpace, contentColumnFamily, uuid);
             Map<String, Object> contentBeforeDelete = ImmutableMap.copyOf(content);
             String resourceType = (String) content.get("sling:resourceType");
-            markDeleted(keySpace, contentColumnFamily, path);
-            client.remove(keySpace, contentColumnFamily, path);
             putCached(keySpace, contentColumnFamily, uuid,
                     ImmutableMap.of(DELETED_FIELD, (Object) TRUE), false);
             if (resourceType != null) {
@@ -643,8 +638,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         putCached(keySpace, contentColumnFamily, to, fromStructure, true);
 
         // remove the old from.
-        removeFromCache(keySpace, contentColumnFamily, from);
-        client.remove(keySpace, contentColumnFamily, from);
+        removeCached(keySpace, contentColumnFamily, from);
         eventListener.onDelete(Security.ZONE_CONTENT, from, accessControlManager.getCurrentUserId(), null, "op:move");
         eventListener.onUpdate(Security.ZONE_CONTENT, to, accessControlManager.getCurrentUserId(), true, null, "op:move");
 

@@ -32,6 +32,7 @@ import org.sakaiproject.nakamura.lite.types.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Method;
 import java.security.MessageDigest;
@@ -61,12 +62,7 @@ public class StorageClientUtils {
      * Default hashing algorithm for passwords
      */
     public final static String SECURE_HASH_DIGEST = "SHA-512";
-    /**
-     * Charset for encoding byte data as char
-     * @deprecated not of any use for encoding, use encode(byte[])
-     */
-    public static final char[] URL_SAFE_ENCODING = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-            .toCharArray();
+    
     /**
      * Based on JackRabbit: Jackrabbit uses a subset of 8601 (8601:2000) for
      * their date times.
@@ -200,6 +196,9 @@ public class StorageClientUtils {
      *         element in the path.
      */
     public static String getObjectName(String objectPath) {
+        if ( objectPath == null || "".equals(objectPath)) {
+            return "";
+        }
         if ("/".equals(objectPath)) {
             return "/";
         }
@@ -490,7 +489,7 @@ public class StorageClientUtils {
             } else if ( defaultValue instanceof Integer ) {
                 return (T) new Integer(String.valueOf(setting));
             } else if (defaultValue instanceof Boolean ) {
-                return (T) new Boolean(String.valueOf(setting));
+                return (T) Boolean.valueOf(String.valueOf(setting));
             } else if ( defaultValue instanceof Double ) {
                 return (T) new Double(String.valueOf(setting));
             } else if ( defaultValue instanceof String[] ) {
@@ -675,6 +674,30 @@ public class StorageClientUtils {
 
     public static String getInternalUuid() {
         return getUuid()+"+"; // URL safe base 64 does not use + chars
+    }
+
+    public static void copyTree(ContentManager contentManager, String sourcePath, String destPath,
+            boolean withStreams) throws StorageClientException, AccessDeniedException, IOException {
+        contentManager.copy(sourcePath, destPath, withStreams);
+        LOGGER.info("Copied {} to {} ", sourcePath, destPath );
+        Content content = contentManager.get(sourcePath);
+        if (content != null) {
+            for (String childPath : content.listChildPaths()) {
+                String name = StorageClientUtils.getObjectName(childPath);
+                String childSourcePath = StorageClientUtils.newPath(sourcePath, name);
+                String childDestPath = StorageClientUtils.newPath(destPath, name);
+                copyTree(contentManager, childSourcePath, childDestPath, withStreams);
+            }
+        }
+    }
+
+    public static void dumpTree(Content content) {
+        if ( content != null ) {
+            LOGGER.info("Path {} ",content.getPath());      
+            for ( Content child : content.listChildren() ) {
+                dumpTree(child);
+            }
+        }
     }
 
 }

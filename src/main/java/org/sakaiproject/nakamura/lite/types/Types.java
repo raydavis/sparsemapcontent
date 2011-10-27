@@ -133,20 +133,14 @@ public class Types {
         if (!key.equals(ckey)) {
             throw new IOException("Body Key does not match row key, unable to read");
         }
-        int size = dis.readInt();
-        LOGGER.debug("Reading {} items",size);
-        for (int i = 0; i < size; i++) {            
-            String k = dis.readUTF();
-            LOGGER.debug("Read key {} ",k);
-            output.put(k,lookupTypeById(dis.readInt()).load(dis));
-        }
+        readMapFromStream(output, dis);
         String cftype = null;
         try {
             cftype = dis.readUTF();
         } catch (IOException e) {
             LOGGER.debug("No type specified");
         }
-        if ( cftype != null && !cftype.equals(type)) {
+        if (cftype != null && !cftype.equals(type)) {
             throw new IOException(
                     "Object is not of expected column family, unable to read expected [" + type
                             + "] was [" + cftype + "]");
@@ -154,6 +148,16 @@ public class Types {
         LOGGER.debug("Finished Reading");
         dis.close();
         binaryStream.close();
+    }
+
+    public static void readMapFromStream(Map<String, Object> output, DataInputStream dis) throws IOException {
+        int size = dis.readInt();
+        LOGGER.debug("Reading {} items", size);
+        for (int i = 0; i < size; i++) {
+            String k = dis.readUTF();
+            LOGGER.debug("Read key {} ", k);
+            output.put(k, lookupTypeById(dis.readInt()).load(dis));
+        }
     }
 
     /**
@@ -177,30 +181,9 @@ public class Types {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream dos = new DataOutputStream(baos);
         dos.writeUTF(key);
-        int size = 0;
-        for (Entry<String, ?> e : m.entrySet()) {
-            Object o = e.getValue();
-            if ( o != null && !(o instanceof RemoveProperty) ) {
-                size++;
-            }
-        }
-
-        dos.writeInt(size);
-        LOGGER.debug("Write {} items",size);
-        for (Entry<String, ?> e : m.entrySet()) {
-            Object o = e.getValue();
-            if ( o != null && !(o instanceof RemoveProperty) ) {
-                String k = e.getKey();
-                LOGGER.debug("Write {} ",k);
-                dos.writeUTF(k);
-                Type<?> t = getTypeOfObject(o);
-                dos.writeInt(t.getTypeId());
-                t.save(dos, o);
-            }
-        }
+        writeMapToStream(m, dos);
         // add the type in
         dos.writeUTF(type);
-        LOGGER.debug("Finished Writen {} items",size);
         dos.flush();
         baos.flush();
         byte[] b = baos.toByteArray();
@@ -209,6 +192,39 @@ public class Types {
         return new ByteArrayInputStream(b);
     }
     
+    
+    // IF you change this function you will have to change it in a way that
+    // either is self healing for all the data out there
+    // or write a migration script. Be warned, there could be billions of
+    // records out there, so be very careful
+    // Appending to record is possible, if you make the loader fail safe when
+    // the data isnt there. See the last writeUTF for an example.
+    public static void writeMapToStream(Map<String, Object> m,
+            DataOutputStream dos) throws IOException {
+        int size = 0;
+        for (Entry<String, ?> e : m.entrySet()) {
+            Object o = e.getValue();
+            if (o != null && !(o instanceof RemoveProperty)) {
+                size++;
+            }
+        }
+
+        dos.writeInt(size);
+        LOGGER.debug("Write {} items", size);
+        for (Entry<String, ?> e : m.entrySet()) {
+            Object o = e.getValue();
+            if (o != null && !(o instanceof RemoveProperty)) {
+                String k = e.getKey();
+                LOGGER.debug("Write {} ", k);
+                dos.writeUTF(k);
+                Type<?> t = getTypeOfObject(o);
+                dos.writeInt(t.getTypeId());
+                t.save(dos, o);
+            }
+        }
+        LOGGER.debug("Finished Writen {} items", size);
+
+    }    
     
     private static Type<?> lookupTypeById(int typeId) {
         Type<?> t = (Type<?>) typeByIdMap.get(typeId);
