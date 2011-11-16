@@ -27,11 +27,14 @@ public class ConnectionHolder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ConnectionHolder.class);
     private static final long TTL = 3600000L;
+    private static final long validateWait = 120000L;
     private Connection connection;
     private long lastUsed;
+    private long lastValidated;
 
     public ConnectionHolder(Connection connection) {
         this.lastUsed = System.currentTimeMillis();
+        this.lastValidated = 0L; // force the connection to get validated, even if its new.
         this.connection = connection;
     }
 
@@ -40,10 +43,39 @@ public class ConnectionHolder {
     }
 
     public boolean hasExpired() {
-        return (System.currentTimeMillis() > lastUsed + TTL);
+        //add validity check
+        /*
+            if enough time has elapsed
+                run validation query
+                on any exception return false;
+         */
+        long now = System.currentTimeMillis();
+
+        if (now > lastValidated + validateWait)
+        {
+            boolean valid = false;
+            try
+            {
+                valid = connection.isValid(10000);
+            }
+            catch (Throwable e)
+            {
+                LOGGER.warn("Error running validation query", e);
+            }
+
+            if (!valid) return true;
+
+            lastValidated = now;
+        }
+
+        return (now > lastUsed + TTL);
     }
 
     public Connection get() {
+        if (hasExpired()) return null;
+
+        ping();
+
         return connection;
     }
 

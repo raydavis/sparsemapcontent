@@ -45,12 +45,13 @@ import uk.co.tfd.sm.api.proxy.ProxyPreProcessor;
 import com.google.common.collect.ImmutableMap;
 
 /**
- *
+ * Needs a vivo instance to be available.
  */
 @RunWith(MockitoJUnitRunner.class)
-public class ProxyServletTestVivo {
+public class ProxyServletVivoMan {
 
-	private static final Logger LOGGER = LoggerFactory.getLogger(ProxyServletTestVivo.class);
+	
+	private static final Logger LOGGER = LoggerFactory.getLogger(ProxyServletVivoMan.class);
 
 	private ProxyServlet servlet;
 
@@ -91,6 +92,9 @@ public class ProxyServletTestVivo {
 
 		
 		proxyClientService = new ProxyClientServiceImpl();
+		ProxyTemplateServiceImpl templateService = new ProxyTemplateServiceImpl();
+		templateService.activate(ImmutableMap.of("x", (Object)"y"));
+		proxyClientService.templateService = templateService;
 		proxyClientService.activate(ImmutableMap.of("x",(Object)"y"));
 		servlet.proxyClientService = proxyClientService;
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -79,18 +79,6 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
     private StoreListener storeListener;
     private Session session;
 
-    /**
-     * Fields are not protected when the authorizable manager is in maintenance mode. Only an admin session can switch to maintenance mode.
-     */
-    private boolean maintenanceMode = false;
-
-    public void setMaintenanceMode(boolean maintenanceMode) {
-        if ( User.ADMIN_USER.equals(accessControlManager.getCurrentUserId()) ) {
-           this.maintenanceMode = maintenanceMode;
-        }
-    }
-
-
     public AuthorizableManagerImpl(User currentUser, Session session, StorageClient client,
             Configuration configuration, AccessControlManagerImpl accessControlManager,
             Map<String, CacheHolder> sharedCache, StoreListener storeListener) throws StorageClientException,
@@ -142,7 +130,15 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
 
     public void updateAuthorizable(Authorizable authorizable) throws AccessDeniedException,
             StorageClientException {
+        updateAuthorizable(authorizable, true);
+    }
+
+    public void updateAuthorizable(Authorizable authorizable, boolean withTouch) throws AccessDeniedException,
+            StorageClientException {
         checkOpen();
+        if ( !withTouch && !thisUser.isAdmin() ) {
+            throw new StorageClientException("Only admin users can update without touching the user");           
+        }
         String id = authorizable.getId();
         if ( authorizable.isImmutable() ) {
             throw new StorageClientException("You cant update an immutable authorizable:"+id);
@@ -279,10 +275,12 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
 
         Map<String, Object> encodedProperties = StorageClientUtils.getFilteredAndEcodedMap(
                 authorizable.getPropertiesForUpdate(), FILTER_ON_UPDATE);
-        // in maintenance mode, these fields will not be overwritten if they already exist
-        setField(encodedProperties, Authorizable.LASTMODIFIED_FIELD, System.currentTimeMillis());
-        setField(encodedProperties, Authorizable.LASTMODIFIED_BY_FIELD, accessControlManager.getCurrentUserId());
-        setField(encodedProperties, Authorizable.ID_FIELD, id);
+        if (withTouch) {
+            encodedProperties.put(Authorizable.LASTMODIFIED_FIELD, System.currentTimeMillis());
+            encodedProperties.put(Authorizable.LASTMODIFIED_BY_FIELD,
+                    accessControlManager.getCurrentUserId());
+        }
+        encodedProperties.put(Authorizable.ID_FIELD, id); // make certain the ID is always there.
         putCached(keySpace, authorizableColumnFamily, id, encodedProperties, authorizable.isNew());
 
         authorizable.reset(getCached(keySpace, authorizableColumnFamily, id));
@@ -304,14 +302,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         }
     }
 
-    private void setField(Map<String, Object> toSave, String field, Object value) {
-        if ( maintenanceMode && toSave.containsKey(field)) {
-            return;
-        }
-        toSave.put(field, value);
-    }
-
-  public boolean createAuthorizable(String authorizableId, String authorizableName,
+    public boolean createAuthorizable(String authorizableId, String authorizableName,
             String password, Map<String, Object> properties) throws AccessDeniedException,
             StorageClientException {
         checkId(authorizableId);
