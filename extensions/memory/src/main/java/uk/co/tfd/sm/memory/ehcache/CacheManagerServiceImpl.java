@@ -34,9 +34,9 @@ import net.sf.ehcache.CacheManager;
 import net.sf.ehcache.management.ManagementService;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
-import org.apache.felix.scr.annotations.Modified;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Service;
 import org.sakaiproject.nakamura.api.memory.Cache;
@@ -48,8 +48,8 @@ import org.slf4j.LoggerFactory;
 /**
  * The <code>CacheManagerServiceImpl</code>
  */
-@Component(immediate = true, label = "CacheManagerServiceImpl", description = "Implementation of the Cache Manager Service")
-@Service
+@Component(immediate = true, metatype=true)
+@Service(value=CacheManagerService.class)
 public class CacheManagerServiceImpl implements CacheManagerService {
 
   public static final String DEFAULT_CACHE_CONFIG = "sling/ehcacheConfig.xml";
@@ -57,7 +57,7 @@ public class CacheManagerServiceImpl implements CacheManagerService {
   @Property( value = DEFAULT_CACHE_CONFIG)
   public static final String CACHE_CONFIG = "cache-config";
 
-@Property(value = "The Sakai Foundation")
+  @Property(value = "The Sakai Foundation")
   static final String SERVICE_VENDOR = "service.vendor";
 
   @Property(value = "Cache Manager Service Implementation")
@@ -82,8 +82,8 @@ public class CacheManagerServiceImpl implements CacheManagerService {
   public CacheManagerServiceImpl() throws IOException {
   }
   
-  @Modified
-  protected void activate(Map<String, Object> properties) throws FileNotFoundException, IOException {
+  @Activate
+  public void activate(Map<String, Object> properties) throws FileNotFoundException, IOException {
 	  String config = toString(properties.get(CACHE_CONFIG), DEFAULT_CACHE_CONFIG);
 	  File configFile = new File(config);
 	  if ( configFile.exists() ) {

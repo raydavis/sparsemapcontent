@@ -1,4 +1,4 @@
-package org.sakaiproject.nakamura.jetty;
+package uk.co.tfd.sm.jetty;
 
 import org.apache.felix.http.api.ExtHttpService;
 import org.apache.felix.scr.annotations.Activate;
@@ -23,7 +23,7 @@ import javax.servlet.ServletResponse;
 /**
  * This class that operates as a managed service.
  */
-@Component(immediate=true, metatype=true)
+@Component(enabled=false, immediate=true, metatype=true)
 @Service(value=Filter.class)
 @Properties(value={
 		@Property(name="bufferSize", intValue=8192),
@@ -35,7 +35,8 @@ public class OSGiGZipFilter extends GzipFilter {
 
   private static final String DEFAULT_USER_AGENT = "(?:Mozilla[^\\(]*\\(compatible;\\s*+([^;]*);.*)|(?:.*?([^\\s]+/[^\\s]+).*)";
 	
-  @Property(value=DEFAULT_USER_AGENT)
+  @SuppressWarnings("unused")
+@Property(value=DEFAULT_USER_AGENT)
   private static final String PROP_USER_AGENT = "userAgent";
 	
   @Reference
