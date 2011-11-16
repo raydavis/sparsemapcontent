@@ -42,6 +42,7 @@ public class LogFileRecord {
             String k = din.readUTF();
             Map<String, Object> record = Maps.newHashMap();
             Types.readMapFromStream(record, din);
+            @SuppressWarnings("unused")
             String columnFamily = din.readUTF();
             logMap.put(k, record);
         }

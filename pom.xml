@@ -94,7 +94,6 @@
   <prerequisites>
     <maven>2.2.1</maven>
   </prerequisites>
-
   <build>
     <plugins>
       <plugin>
@@ -156,6 +155,24 @@
          </includes>
        </configuration>
      </plugin>
+     <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-install-plugin</artifactId>
+        <version>2.3.1</version>
+        <executions>
+          <execution>
+            <id>install-parent</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>install-file</goal>
+            </goals>
+            <configuration>
+               <file>parent/pom.xml</file>
+               <pomFile>parent/pom.xml</pomFile>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
   <dependencies>
@@ -199,7 +216,6 @@
        <version>1.4</version>
     </dependency>
 
-    
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
