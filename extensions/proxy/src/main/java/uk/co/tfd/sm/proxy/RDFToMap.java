@@ -17,8 +17,7 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.sakaiproject.nakamura.api.memory.Cache;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -37,37 +36,37 @@ public class RDFToMap {
 	private static final QName RDF_ABOUT = new QName(RDF_NS, "about");
 	private static final QName RDF_DESCRIPTION = new QName(RDF_NS,
 			"Description");
-	private static final Logger LOGGER = LoggerFactory
-			.getLogger(RDFToMap.class);
+	private static final Map<String, Map<String, Object>> EMPTY_MAP = ImmutableMap.of();
 	private XMLInputFactory xmlInputFactory;
 	private Map<String, String> nsPrefixMap;
 	private Map<String, Map<String, Object>> tripleMap;
 	private Map<String, Object> resolvedMap;
+	private Map<String, Object> resolverConfig;
 
 	public RDFToMap(Map<String, String> nsPrefixMap) {
 		init(nsPrefixMap);
 	}
 	
 
-	public RDFToMap(String namespaceMapConfig) {
+	public RDFToMap(String namespaceMapConfig,  Map<String, Object> resolverConfig) {
 		String[] pairs = StringUtils.split(namespaceMapConfig, ";");
 		Builder<String, String> b = ImmutableMap.builder();
 		if ( pairs != null ) {
 			for (String pair : pairs) {
 				String[] kv = StringUtils.split(pair, "=", 2);
-				
 				if (kv == null || kv.length == 0 ) {
 					throw new RuntimeException(
 							"Names space key value pairs must be of the form ns=nsuri;ns=nsuri failed to parse "
 									+ namespaceMapConfig);
 				} else if ( kv.length == 1) {
-					b.put(kv[0],"");
+					b.put(kv[0].trim(),"");
 				} else {
-					b.put(kv[1], kv[0]);
+					b.put(kv[1].trim(), kv[0].trim());
 				}
 			}
 		}
 		init(b.build());
+		this.resolverConfig = resolverConfig;
 	}
 
 
@@ -114,8 +113,13 @@ public class RDFToMap {
 							.getAttributeByName(RDF_RESOURCE);
 					key = name.getNamespaceURI() + name.getLocalPart();
 					if (resource != null) {
-						putMap(currentMap, key,
-								"rdf:resource:" + processNamespaceURI(resource.getValue()));
+						String value = resource.getValue();
+						if ( isDefaultNamespaceURI(value)) {
+							putMap(currentMap, key, new ResolvableResource(processNamespaceURI(value), resolverConfig));
+						} else {
+							putMap(currentMap, key,
+								new NonResolvableResource(processNamespaceURI(value)));
+						}
 						state = 4;
 					} else {
 						body = new StringBuilder();
@@ -157,7 +161,7 @@ public class RDFToMap {
 	public RDFToMap resolveToFullJson() {
 		Set<String> resolving = Sets.newHashSet();
 		resolvedMap = Maps.newHashMap();
-		resolveToFullJson(resolvedMap, tripleMap, tripleMap, resolving);
+		resolveToFullJson(resolvedMap, EMPTY_MAP, tripleMap, resolving);
 		Map<String, String> invertedNsPrefixMap = invertMap(nsPrefixMap);
 		accumulate(resolvedMap, "_namespaces", invertedNsPrefixMap);
 		accumulate(resolvedMap, "_default", invertedNsPrefixMap.get(""));
@@ -165,12 +169,14 @@ public class RDFToMap {
 	}
 	
 	
+
+
 	public String toJson(boolean indented) {
 		if (indented ) {
-			Gson gson = new GsonBuilder().setPrettyPrinting().create();
+			Gson gson = new GsonBuilder().setPrettyPrinting().registerTypeHierarchyAdapter(Resource.class, new ResourceSerializer()).create();
 			return gson.toJson(resolvedMap);
 		} else {
-			Gson gson = new Gson();
+			Gson gson = new GsonBuilder().registerTypeHierarchyAdapter(Resource.class, new ResourceSerializer()).create();
 			return gson.toJson(resolvedMap);
 		}
 	}
@@ -198,47 +204,86 @@ public class RDFToMap {
 		return b.build();
 	}
 
-	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private void resolveToFullJson(Map<String, Object> output,
 			Map<String, Map<String, Object>> baseMap, Map<String, ?> m, Set<String> resolving) {
 		for (Entry<String, ?> e : m.entrySet()) {
-			Object o = e.getValue();
-			if (o instanceof Map) {
-				Map<String, Object> nobj = Maps.newHashMap();
-				accumulate(output, e.getKey(), nobj);
-				accumulate(nobj, processNamespaceURI(FQ_ABOUT), e.getKey());
-				resolveToFullJson(nobj, baseMap, (Map<String, ?>) o, resolving);
-			} else if (o instanceof Set) {
-				for (Object ov : (Set) o) {
-					accumulate(output, e.getKey(), ov);
-				}
-			} else if ( o instanceof String && ((String) o).startsWith("rdf:resource:")) {
-				String key = ((String) o).substring("rdf:resource:".length());
-				if (!resolving.contains(key) && baseMap.containsKey(key) && baseMap.get(key) instanceof Map  ) {
-					Map<String, Object> nobj = Maps.newHashMap();
-					accumulate(output, e.getKey(), nobj);
-					accumulate(nobj, processNamespaceURI(FQ_ABOUT), key);
+			resolveValueToFullJson(e.getKey(), e.getValue(), output, baseMap, m, resolving);
+		}		
+	}
+	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	private void resolveValueToFullJson(String k, Object v,
+			Map<String, Object> output,
+			Map<String, Map<String, Object>> baseMap, Map<String, ?> m,
+			Set<String> resolving) {
+		String resourceRef = getResourceRef(v);
+		if (v instanceof Map) {
+//			LOGGER.info("Did not resolve {} adding Map ", k);
+			Map<String, Object> nobj = Maps.newHashMap();
+			accumulate(output, k, nobj);
+			accumulate(nobj, processNamespaceURI(FQ_ABOUT), k);
+			resolveToFullJson(nobj, baseMap, (Map<String, ?>) v, resolving);
+		} else if (v instanceof Set) {
+//			LOGGER.info("Did not resolve {} adding Set ", k);
+			List<String> resolvedInSet = Lists.newArrayList();
+			int i = 0;
+			for (Object ov : (Set) v) {
+				String key = getResourceRef(ov);
+				if (key != null && !resolving.contains(key)) {
+					resolvedInSet.add(i, key);
 					resolving.add(key);
-					resolveToFullJson(nobj, baseMap, baseMap.get(key), resolving);
-					resolving.remove(key);
 				} else {
-					accumulate(output, e.getKey(), e.getValue());
+					resolvedInSet.add(i, null);
 				}
-			} else {
-				accumulate(output, e.getKey(), e.getValue());
+				i++;
 			}
+			i = 0;
+			for (Object ov : (Set) v) {
+				if (resolvedInSet.get(i) != null) {
+					resolving.remove(resolvedInSet.get(i));
+				}
+				resolveValueToFullJson(k, ov, output, baseMap, m, resolving);
+				i++;
+			}
+		} else if (resourceRef != null) {
+			if (!resolving.contains(resourceRef)
+					&& baseMap.containsKey(resourceRef)
+					&& baseMap.get(resourceRef) instanceof Map) {
+//				LOGGER.info("Resolved and Accumunated {} ", resourceRef);
+				Map<String, Object> nobj = Maps.newHashMap();
+				accumulate(output, k, nobj);
+				accumulate(nobj, processNamespaceURI(FQ_ABOUT), resourceRef);
+				resolving.add(resourceRef);
+				resolveToFullJson(nobj, baseMap, baseMap.get(resourceRef),
+						resolving);
+				resolving.remove(resourceRef);
+			} else {
+//				LOGGER.info("Did not resolve {} adding String {} ", k, v);
+				accumulate(output, k, v);
+			}
+		} else {
+//			LOGGER.info("Did not resolve {} adding Object ", k);
+			accumulate(output, k, v);
 		}
 	}
 
+	private String getResourceRef(Object ov) {
+		if ( ov instanceof String && ((String) ov).startsWith("rdf:resource:")) {
+			return ((String) ov).substring("rdf:resource:".length());
+		}
+		return null;
+	}
+
+
 	@SuppressWarnings({ "unchecked", "rawtypes" })
-	private void putMap(Map<String, Object> map, String keyWithNamespace, String value) {
+	private void putMap(Map<String, Object> map, String keyWithNamespace, Object value) {
 		String key = processNamespaceURI(keyWithNamespace);
 		if (map.containsKey(key)) {
 			Object o = map.get(key);
 			if (o instanceof Set) {
 				((Set) o).add(value);
 			} else {
-				map.put(key, Sets.newHashSet((String) o, value));
+				map.put(key, Sets.newHashSet(o, value));
 			}
 		} else {
 			map.put(key, value);
@@ -250,7 +295,7 @@ public class RDFToMap {
 			Map<String, Map<String, Object>> tripleMap) {
 		String key = processNamespaceURI(keyWithNamespace);
 		if (tripleMap.containsKey(key)) {
-			LOGGER.info("Map for {} already exists ", key);
+//			LOGGER.info("Map for {} already exists ", key);
 			return tripleMap.get(key);
 
 		} else {
@@ -258,6 +303,20 @@ public class RDFToMap {
 			tripleMap.put(key, m);
 			return m;
 		}
+	}
+
+	private boolean isDefaultNamespaceURI(String keyWithNamespace) {
+		for ( Entry<String, String> e : nsPrefixMap.entrySet() ) {
+			if ( keyWithNamespace.startsWith(e.getKey())) {
+				String ns = e.getValue();
+				if ( ns.length() > 0 ) {				
+					return false;
+				} else {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private String processNamespaceURI(String keyWithNamespace) {
@@ -277,6 +336,16 @@ public class RDFToMap {
 
 	public Map<String, Object> toMap() {
 		return resolvedMap;
+	}
+
+
+	public void saveCache(Cache<Map<String, Object>> cache) {
+		for ( Entry<String, Map<String, Object>> e : tripleMap.entrySet()) {
+			Object o = e.getValue();
+			if ( o instanceof Map) {
+				cache.put(e.getKey(), e.getValue());
+			}
+		}
 	}
 
 }
