@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -26,7 +26,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.text.MessageFormat;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -45,7 +44,6 @@ import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClient;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClientPool;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
@@ -102,7 +100,7 @@ public class JDBCStorageClientTest {
     Map<String, Object> props = Maps.newLinkedHashMap();
     props.put("key1", "val1");
     props.put("key2", "val2");
-    client.find(keySpace, columnFamily, props);
+    client.find(keySpace, columnFamily, props, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
@@ -138,7 +136,7 @@ public class JDBCStorageClientTest {
     orSet.put("key1", "val1");
     orSet.put("key2", "val2");
     container.put("orSet", orSet);
-    client.find(keySpace, columnFamily, container);
+    client.find(keySpace, columnFamily, container, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
@@ -178,7 +176,7 @@ public class JDBCStorageClientTest {
     container.put("orSet", orSet);
     container.put("testKey2", "testVal2");
 
-    client.find(keySpace, columnFamily, container);
+    client.find(keySpace, columnFamily, container, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
@@ -232,7 +230,7 @@ public class JDBCStorageClientTest {
     container.put("orSet1", orSet1);
     container.put("orSet2", orSet2);
 
-    client.find(keySpace, columnFamily, container);
+    client.find(keySpace, columnFamily, container, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
@@ -284,7 +282,7 @@ public class JDBCStorageClientTest {
     Map<String, Object> props = Maps.newLinkedHashMap();
     props.put("key1", "val1");
     props.put("key2not", "val2");
-    client.find(keySpace, columnFamily, props);
+    client.find(keySpace, columnFamily, props, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
@@ -314,7 +312,7 @@ public class JDBCStorageClientTest {
     Map<String, Object> props = Maps.newLinkedHashMap();
     props.put("key1", ImmutableList.of("val1", "val2"));
     props.put("key2", "val2");
-    client.find(keySpace, columnFamily, props);
+    client.find(keySpace, columnFamily, props, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());
@@ -355,7 +353,7 @@ public class JDBCStorageClientTest {
     orSet.put("key1", ImmutableList.of("val1", "val2"));
     orSet.put("key2", "val2");
     container.put("orSet", orSet);
-    client.find(keySpace, columnFamily, container);
+    client.find(keySpace, columnFamily, container, null);
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     verify(conn, atLeastOnce()).prepareStatement(sqlCaptor.capture());

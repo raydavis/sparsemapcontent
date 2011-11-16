@@ -5,13 +5,13 @@
   <parent>
     <groupId>org.sakaiproject.nakamura</groupId>
     <artifactId>core-base</artifactId>
-    <version>1-SNAPSHOT</version>
-    <relativePath>../../parent/pom.xml</relativePath>
+    <version>2</version>
+    <!-- <relativePath>../../parent/pom.xml</relativePath> -->
   </parent>
   <artifactId>uk.co.tfd.sm.jetty</artifactId>
   <packaging>bundle</packaging>
   <version>0.1-SNAPSHOT</version>
-  <name>Sakai Nakamura2 :: Jetty Configuration</name>
+  <name>Sparse Map :: Jetty Configuration</name>
   <description>Adds configuration and setup of default servlets for Jetty.</description>    
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -44,7 +44,7 @@
             <Private-Package>
 	            org.apache.felix.http.jetty.internal;-split-package:=merge-first,
 	            org.mortbay.management;-split-package:=merge-first,
-	            org.sakaiproject.nakamura.jetty
+	            uk.co.tfd.sm.jetty
             </Private-Package>
             <Import-Package>
 				 javax.management,
@@ -69,7 +69,6 @@
             </Import-Package>
             <Embed-Dependency>
             	org.apache.felix.http.jetty,
-            	jetty-util,
             	jetty-management
             </Embed-Dependency>
           </instructions>
@@ -116,5 +115,24 @@
       <artifactId>slf4j-api</artifactId>
       <version>1.5.10</version>
     </dependency>
+    <dependency>
+    	<groupId>commons-lang</groupId>
+    	<artifactId>commons-lang</artifactId>
+    	<version>2.4</version>
+    	<type>jar</type>
+    	<scope>compile</scope>
+    </dependency>
+    <dependency>
+    	<groupId>commons-io</groupId>
+    	<artifactId>commons-io</artifactId>
+    	<version>1.4</version>
+    	<type>jar</type>
+    	<scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.googlecode.guava-osgi</groupId>
+      <artifactId>guava-osgi</artifactId>
+      <version>9.0.0</version>
+    </dependency>    
   </dependencies>
 </project>

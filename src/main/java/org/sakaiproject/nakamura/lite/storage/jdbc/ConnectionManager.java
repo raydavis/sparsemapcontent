@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -26,6 +26,12 @@ public class ConnectionManager extends TimerTask {
 
     private Map<Thread, ConnectionHolder> threadMap = new ConcurrentHashMap<Thread, ConnectionHolder>();
     private boolean closing = false;
+    private JDBCStorageClientPool jdbcStorageClientPool;
+    
+
+    public ConnectionManager(JDBCStorageClientPool jdbcStorageClientPool) {
+        this.jdbcStorageClientPool = jdbcStorageClientPool;
+    }
 
     @Override
     public void run() {
@@ -38,8 +44,7 @@ public class ConnectionManager extends TimerTask {
         }
         Thread t = Thread.currentThread();
         ConnectionHolder ch = threadMap.get(t);
-        if (ch != null && ch.get() != null) {
-            ch.ping();
+        if (ch != null) {
             return ch.get();
         }
         return null;
@@ -56,7 +61,7 @@ public class ConnectionManager extends TimerTask {
             c.close();
             threadMap.remove(t);
         }
-        ConnectionHolder ch = new ConnectionHolder(connection);
+        ConnectionHolder ch = new ConnectionHolder(connection, jdbcStorageClientPool);
         threadMap.put(t, ch);
     }
 

@@ -1,15 +1,4 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-    <!--
-        Licensed to the Apache Software Foundation (ASF) under one or more contributor license
-        agreements. See the NOTICE file distributed with this work for additional information
-        regarding copyright ownership. The ASF licenses this file to you under the Apache License,
-        Version 2.0 (the "License"); you may not use this file except in compliance with the
-        License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
-        Unless required by applicable law or agreed to in writing, software distributed under the
-        License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND,
-        either express or implied. See the License for the specific language governing permissions
-        and limitations under the License.
-    -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
@@ -17,15 +6,15 @@
   <parent>
     <groupId>org.sakaiproject.nakamura</groupId>
     <artifactId>core-base</artifactId>
-    <version>1-SNAPSHOT</version>
-    <relativePath>../../parent/pom.xml</relativePath>
+    <version>2</version>
+    <!-- <relativePath>../../parent/pom.xml</relativePath> -->
   </parent>
 
     <artifactId>uk.co.tfd.sm.app</artifactId>
     <packaging>jar</packaging>
     <version>1.0-SNAPSHOT</version>
 
-    <name>Sakai Nakamura :: Launchpad SparseMap</name>
+    <name>Sparse Map :: Standalone App</name>
     <description> Standalone Launchpad Java Application. Everything needed to run the Launchpad is
     included in a single JAR file. </description>
 
@@ -34,6 +23,7 @@
             <plugin>
                 <groupId>org.apache.sling</groupId>
                 <artifactId>maven-launchpad-plugin</artifactId>
+                <version>2.1.0</version>
                 <executions>
                     <execution>
                         <id>prepare-package-jar</id>
@@ -48,7 +38,7 @@
                                  <groupId>org.sakaiproject.nakamura</groupId>
                                  <artifactId>uk.co.tfd.sm.jetty</artifactId>
                                  <version>0.1-SNAPSHOT</version>
-                                 <startLevel>5</startLevel>
+                                 <startLevel>30</startLevel>
                            </jarWebSupport>
                         </configuration>
                     </execution>
@@ -80,6 +70,7 @@
             <plugin>
               <groupId>org.apache.maven.plugins</groupId>
               <artifactId>maven-resources-plugin</artifactId>
+              <version>2.5</version>
               <executions>
                  <execution>
                     <id>include-resource-modifications</id>
@@ -94,6 +85,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
+                <version>2.3.2</version>
                 <configuration>
                    <archive>
                      <manifest>
@@ -104,11 +96,11 @@
                      <manifestEntries>
                          <Specification-Title>Sparse Server</Specification-Title>
                          <Specification-Version>${project.version}</Specification-Version>
-                         <Specification-Vendor>The Sakai Foundation</Specification-Vendor>
+                         <Specification-Vendor>Ian Boston</Specification-Vendor>
                          <Implementation-Title>Sparse Server</Implementation-Title>
                          <Implementation-Version>${project.version}</Implementation-Version>
                          <Implementation-Vendor-Id>${project.groupId}</Implementation-Vendor-Id>
-                         <Implementation-Vendor>The Sakai Foundation</Implementation-Vendor>
+                         <Implementation-Vendor>Ian Boston</Implementation-Vendor>
                          <Main-Class>org.sakaiproject.nakamura.app.NakamuraMain</Main-Class>
                      </manifestEntries>
                    </archive>
@@ -129,6 +121,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
+                <version>2.8</version>
                 <configuration>
                     <!-- No javadocs -->
                     <excludePackageNames>
@@ -188,41 +181,5 @@
             </build>
         </profile>
     </profiles>
-
-    <repositories>
-        <repository>
-            <id>sakai-maven</id>
-            <name>Sakai Maven Repo</name>
-            <layout>default</layout>
-            <url>http://source.sakaiproject.org/maven2</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-        </repository>
-        <repository>
-            <id>EclipseLink Repo</id>
-            <url>http://mirror.cc.columbia.edu/pub/software/eclipse/rt/eclipselink/maven.repo/</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-        </repository>
-        <repository>
-            <id>OPS4J</id>
-            <name>OPS4J Repository</name>
-            <url>http://repository.ops4j.org/maven2</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
-    </repositories>
 </project>
 

@@ -84,18 +84,18 @@ public class OSGiStoreListener implements StoreListener {
     /**
      * {@inheritDoc}
      */
-    public void onDelete(String zone, String path, String user, Map<String, Object> beforeEvent, String ... attributes) {
+    public void onDelete(String zone, String path, String user, String resourceType, Map<String, Object> beforeEvent, String ... attributes) {
         String topic = DEFAULT_DELETE_TOPIC;
         if (deleteTopics.containsKey(zone)) {
             topic = deleteTopics.get(zone);
         }
-        postEvent(topic, path, user, beforeEvent, attributes);
+        postEvent(topic, path, user, resourceType, beforeEvent, attributes);
     }
 
     /**
      * {@inheritDoc}
      */
-    public void onUpdate(String zone, String path, String user, boolean isNew,  Map<String, Object> beforeEvent, String... attributes) {
+    public void onUpdate(String zone, String path, String user, String resourceType, boolean isNew,  Map<String, Object> beforeEvent, String... attributes) {
 
         String topic = DEFAULT_UPDATE_TOPIC;
         if (isNew) {
@@ -109,7 +109,7 @@ public class OSGiStoreListener implements StoreListener {
             }
 
         }
-        postEvent(topic, path, user, beforeEvent, attributes);
+        postEvent(topic, path, user, resourceType, beforeEvent, attributes);
     }
 
     /**
@@ -130,7 +130,7 @@ public class OSGiStoreListener implements StoreListener {
         LOGGER.debug("Logout {} {} ", userid, sessionID);
     }
 
-    private void postEvent(String topic, String path, String user,  Map<String, Object> beforeEvent, String[] attributes) {
+    private void postEvent(String topic, String path, String user, String resourceType,  Map<String, Object> beforeEvent, String[] attributes) {
         final Dictionary<String, Object> properties = new Hashtable<String, Object>();
         if (attributes != null) {
             for (String attribute : attributes) {
@@ -146,6 +146,9 @@ public class OSGiStoreListener implements StoreListener {
         }
         if (path != null) {
             properties.put(PATH_PROPERTY, path);
+        }
+        if ( resourceType != null ) {
+            properties.put(RESOURCE_TYPE_PROPERTY, resourceType);
         }
         properties.put(USERID_PROPERTY, user);
         if ( beforeEvent != null) {

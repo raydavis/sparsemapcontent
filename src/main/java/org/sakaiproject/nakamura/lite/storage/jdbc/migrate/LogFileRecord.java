@@ -1,14 +1,15 @@
 package org.sakaiproject.nakamura.lite.storage.jdbc.migrate;
 
-import com.google.common.collect.Maps;
-import org.apache.commons.lang.StringUtils;
-import org.sakaiproject.nakamura.lite.types.Types;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import org.apache.commons.lang.StringUtils;
+import org.sakaiproject.nakamura.lite.types.Types;
+
+import com.google.common.collect.Maps;
 
 public class LogFileRecord {
 
@@ -42,6 +43,7 @@ public class LogFileRecord {
             String k = din.readUTF();
             Map<String, Object> record = Maps.newHashMap();
             Types.readMapFromStream(record, din);
+            @SuppressWarnings("unused")
             String columnFamily = din.readUTF();
             logMap.put(k, record);
         }

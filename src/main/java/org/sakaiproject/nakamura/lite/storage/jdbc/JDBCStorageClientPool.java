@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -149,7 +149,7 @@ public class JDBCStorageClientPool extends AbstractClientConnectionPool {
         this.properties = properties;
         super.activate(properties);
 
-        connectionManager = new ConnectionManager();
+        connectionManager = new ConnectionManager(this);
         timer = new Timer();
         timer.schedule(connectionManager, 30000L, 30000L);
 
@@ -371,6 +371,16 @@ public class JDBCStorageClientPool extends AbstractClientConnectionPool {
             connectionManager.set(connection);
         }
         return connection;
+    }
+
+
+
+
+    public String getValidationSql() {
+        if ( sqlConfig != null ) {
+            return (String) sqlConfig.get("validate");
+        }
+        return null;
     }
 
 }

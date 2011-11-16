@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -815,7 +815,7 @@ public abstract class AbstractContentManagerTest {
       Content obj = contentManager.get("/testCreateContent");
       Assert.assertNotNull(obj);
       while (true) {
-        for (Content child : obj.listChildren()) {
+        for (@SuppressWarnings("unused") Content child : obj.listChildren()) {
         }
       }
   }

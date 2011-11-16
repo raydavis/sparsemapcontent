@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -77,7 +77,7 @@ public class AuthorizableActivator {
                 User.SYSTEM_USER);
         if (authorizableMap == null || authorizableMap.size() == 0) {
             Map<String, Object> user = ImmutableMap.of(Authorizable.ID_FIELD,
-                    User.SYSTEM_USER, Authorizable.NAME_FIELD,
+                    (Object)User.SYSTEM_USER, Authorizable.NAME_FIELD,
                     User.SYSTEM_USER, Authorizable.PASSWORD_FIELD,
                     "--no-password--",
                     Authorizable.AUTHORIZABLE_TYPE_FIELD, Authorizable.USER_VALUE);
@@ -94,7 +94,7 @@ public class AuthorizableActivator {
                 User.ADMIN_USER);
         if (authorizableMap == null || authorizableMap.size() == 0) {
             Map<String, Object> user = ImmutableMap.of(Authorizable.ID_FIELD,
-                    User.ADMIN_USER, Authorizable.NAME_FIELD,
+                    (Object)User.ADMIN_USER, Authorizable.NAME_FIELD,
                     User.ADMIN_USER, Authorizable.PASSWORD_FIELD,
                     StorageClientUtils.secureHash("admin"),
                     Authorizable.AUTHORIZABLE_TYPE_FIELD, Authorizable.USER_VALUE);
@@ -110,7 +110,7 @@ public class AuthorizableActivator {
                 User.ANON_USER);
         if (authorizableMap == null || authorizableMap.size() == 0) {
             Map<String, Object> user = ImmutableMap.of(Authorizable.ID_FIELD,
-                    User.ANON_USER, Authorizable.NAME_FIELD,
+                    (Object)User.ANON_USER, Authorizable.NAME_FIELD,
                     User.ANON_USER, Authorizable.PASSWORD_FIELD,
                     Authorizable.NO_PASSWORD,
                     Authorizable.AUTHORIZABLE_TYPE_FIELD, Authorizable.USER_VALUE);

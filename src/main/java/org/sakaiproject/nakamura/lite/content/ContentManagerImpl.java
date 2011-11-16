@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -39,6 +39,7 @@ import static org.sakaiproject.nakamura.lite.content.InternalContent.PREVIOUS_VE
 import static org.sakaiproject.nakamura.lite.content.InternalContent.READONLY_FIELD;
 import static org.sakaiproject.nakamura.lite.content.InternalContent.STRUCTURE_UUID_FIELD;
 import static org.sakaiproject.nakamura.lite.content.InternalContent.TRUE;
+import static org.sakaiproject.nakamura.lite.content.InternalContent.UUID_FIELD;
 import static org.sakaiproject.nakamura.lite.content.InternalContent.VERSION_HISTORY_ID_FIELD;
 import static org.sakaiproject.nakamura.lite.content.InternalContent.VERSION_NUMBER_FIELD;
 
@@ -150,7 +151,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     private static final Set<String> PROTECTED_FIELDS = ImmutableSet.of(LASTMODIFIED_FIELD,
                                                                         LASTMODIFIED_BY_FIELD,
-                                                                        Content.getUuidField(),
+                                                                        UUID_FIELD,
                                                                         PATH_FIELD);
 
 
@@ -175,11 +176,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     private StoreListener eventListener;
  
-    /**
-     * Fields are not protected when the content manager is in maintanence mode. Only an admin session can switch to maintanence mode.
-     */
-    private boolean maintanenceMode = false;
-
 
     private PathPrincipalTokenResolver pathPrincipalResolver;
 
@@ -197,12 +193,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         this.accessControlManager = new AccessControlManagerTokenWrapper(accessControlManager, pathPrincipalResolver);
     }
   
-    public void setMaintanenceMode(boolean maintanenceMode) {
-        if ( User.ADMIN_USER.equals(accessControlManager.getCurrentUserId()) ) {
-           this.maintanenceMode = maintanenceMode;
-        }
-    }
-
 
     public boolean exists(String path) {
         try {
@@ -244,7 +234,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     public Iterator<Content> listChildren(String path) throws StorageClientException {
         final DisposableIterator<Map<String, Object>> childContent = client.listChildren(keySpace,
-                contentColumnFamily, path);
+                contentColumnFamily, path, this);
         return new PreemptiveIterator<Content>() {
 
             private Content content;
@@ -284,7 +274,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     public Iterator<String> listChildPaths(final String path) throws StorageClientException {
         final Iterator<Map<String, Object>> childContent = client.listChildren(keySpace,
-                contentColumnFamily, path);
+                contentColumnFamily, path, this);
         return new PreemptiveIterator<String>() {
 
             private String childPath;
@@ -327,10 +317,38 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
     public void triggerRefresh(String path) throws StorageClientException, AccessDeniedException {
         Content c = get(path);
         if ( c != null ) {
-            eventListener.onUpdate(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), false, c.getOriginalProperties(), "op:update");
+            eventListener.onUpdate(Security.ZONE_CONTENT, path,  accessControlManager.getCurrentUserId(), getResourceType(c), false, c.getOriginalProperties(), "op:update");
         }
     }
     
+    private String getResourceType(InternalContent c) {
+        String resourceType = null;
+        if ( c != null ) {
+            if ( c.hasProperty(Content.SLING_RESOURCE_TYPE_FIELD)) {
+                resourceType = (String) c.getProperty(Content.SLING_RESOURCE_TYPE_FIELD);
+            } else if ( c.hasProperty(Content.RESOURCE_TYPE_FIELD)) {
+                resourceType = (String) c.getProperty(Content.RESOURCE_TYPE_FIELD);
+            } else if ( c.hasProperty(Content.MIMETYPE_FIELD)) {
+                resourceType = (String) c.getProperty(Content.MIMETYPE_FIELD);
+            }
+        }
+        return resourceType;
+    }
+    private String getResourceType(Map<String, Object> c) {
+        String resourceType = null;
+        if ( c != null ) {
+            if ( c.containsKey(Content.SLING_RESOURCE_TYPE_FIELD)) {
+                resourceType = (String) c.get(Content.SLING_RESOURCE_TYPE_FIELD);
+            } else if ( c.containsKey(Content.RESOURCE_TYPE_FIELD)) {
+                resourceType = (String) c.get(Content.RESOURCE_TYPE_FIELD);
+            } else if ( c.containsKey(Content.MIMETYPE_FIELD)) {
+                resourceType = (String) c.get(Content.MIMETYPE_FIELD);
+            }
+        }
+        return resourceType;
+    }
+
+
     public void triggerRefreshAll() throws StorageClientException {
         if (User.ADMIN_USER.equals(accessControlManager.getCurrentUserId()) ) {
             DisposableIterator<SparseRow> all = client.listAll(keySpace, contentColumnFamily);
@@ -338,7 +356,8 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 while(all.hasNext()) {
                     Map<String, Object> c = all.next().getProperties();
                     if ( c.containsKey(PATH_FIELD) && !c.containsKey(STRUCTURE_UUID_FIELD)) {
-                        eventListener.onUpdate(Security.ZONE_CONTENT, (String)c.get(PATH_FIELD), User.ADMIN_USER, false, ImmutableMap.copyOf(c), "op:update");                    
+                        
+                        eventListener.onUpdate(Security.ZONE_CONTENT, (String)c.get(PATH_FIELD), User.ADMIN_USER, getResourceType(c), false, ImmutableMap.copyOf(c), "op:update");                    
                     }
                 }
             } finally {
@@ -380,12 +399,12 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             toSave =  Maps.newHashMap(content.getPropertiesForUpdate());
             id = StorageClientUtils.getInternalUuid();
             // if the user is admin we allow overwriting of protected fields. This should allow content migration.
-            setField(toSave, Content.getUuidField(), id);
+            toSave.put(UUID_FIELD, id);
             toSave.put(PATH_FIELD, path);
-            setField(toSave, CREATED_FIELD, System.currentTimeMillis());
-            setField(toSave, CREATED_BY_FIELD, accessControlManager.getCurrentUserId());
-            setField(toSave, LASTMODIFIED_FIELD, System.currentTimeMillis());
-            setField(toSave, LASTMODIFIED_BY_FIELD,
+            toSave.put(CREATED_FIELD, System.currentTimeMillis());
+            toSave.put(CREATED_BY_FIELD, accessControlManager.getCurrentUserId());
+            toSave.put(LASTMODIFIED_FIELD, System.currentTimeMillis());
+            toSave.put(LASTMODIFIED_BY_FIELD,
                     accessControlManager.getCurrentUserId());
             LOGGER.debug("New Content with {} {} ", id, toSave);
         } else if (content.isUpdated()) {
@@ -394,10 +413,10 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
             for (String field : PROTECTED_FIELDS) {
                 LOGGER.debug ("Resetting value for {} to {}", field, originalProperties.get(field));
-                setField(toSave, field, originalProperties.get(field));
+                toSave.put(field, originalProperties.get(field));
             }
 
-            id = (String)toSave.get(Content.getUuidField());
+            id = (String)toSave.get(UUID_FIELD);
             toSave.put(LASTMODIFIED_FIELD, System.currentTimeMillis());
             toSave.put(LASTMODIFIED_BY_FIELD,
                     accessControlManager.getCurrentUserId());
@@ -424,17 +443,10 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         LOGGER.debug("Saved {} at {} as {} ", new Object[] { path, id, toSave });
         // reset state to unmodified to take further modifications.
         content.reset(getCached(keySpace, contentColumnFamily, id));
-        eventListener.onUpdate(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), isnew, originalProperties, "op:update");
+        
+        eventListener.onUpdate(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), getResourceType(content),  isnew, originalProperties, "op:update");
     }
     
-
-    private void setField(Map<String, Object> toSave, String field, Object value) {
-        if ( maintanenceMode && toSave.containsKey(field)) {
-            return;
-        }
-        toSave.put(field, value);
-    }
-
 
     public void delete(String path) throws AccessDeniedException, StorageClientException {
         checkOpen();
@@ -447,11 +459,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             String resourceType = (String) content.get("sling:resourceType");
             putCached(keySpace, contentColumnFamily, uuid,
                     ImmutableMap.of(DELETED_FIELD, (Object) TRUE), false);
-            if (resourceType != null) {
-              eventListener.onDelete(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), contentBeforeDelete, "resourceType:" + resourceType);
-            } else {
-              eventListener.onDelete(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), contentBeforeDelete);
-            }
+            eventListener.onDelete(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), resourceType, contentBeforeDelete);
         }
     }
 
@@ -497,7 +505,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (metadata.containsKey(lengthFieldName)) {
           length = (Long) metadata.get(lengthFieldName);
         }
-        eventListener.onUpdate(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), false, null, "stream", streamId);
+        eventListener.onUpdate(Security.ZONE_CONTENT, path, accessControlManager.getCurrentUserId(), getResourceType(content), false, null, "stream", streamId);
         return length;
 
     }
@@ -549,9 +557,9 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (f == null) {
             throw new StorageClientException(" Source content " + from + " does not exist");
         }
-        if ( f.getProperty(Content.getUuidField()) == null ) {
+        if ( f.getProperty(UUID_FIELD) == null ) {
             LOGGER.warn("Bad Content item with no ID cant be copied {} ",f);
-            throw new StorageClientException(" Source content " + from + "  Has no "+Content.getUuidField());      
+            throw new StorageClientException(" Source content " + from + "  Has no "+UUID_FIELD);      
         }
         Content t = get(to);
         if (t != null) {
@@ -576,7 +584,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             copyProperties.putAll(f.getProperties());
         }
         copyProperties.put(COPIED_FROM_PATH_FIELD, from);
-        copyProperties.put(COPIED_FROM_ID_FIELD, f.getProperty(Content.getUuidField()));
+        copyProperties.put(COPIED_FROM_ID_FIELD, f.getProperty(UUID_FIELD));
         copyProperties.put(COPIED_DEEP_FIELD, withStreams);
         t = new Content(to, copyProperties);
         update(t);
@@ -591,7 +599,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             writeBody(to, fromStream);
             fromStream.close();
         }
-        eventListener.onUpdate(Security.ZONE_CONTENT, to, accessControlManager.getCurrentUserId(), true, null, "op:copy");
+        eventListener.onUpdate(Security.ZONE_CONTENT, to, accessControlManager.getCurrentUserId(), getResourceType(f), true, null, "op:copy");
 
     }
 
@@ -639,8 +647,9 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
         // remove the old from.
         removeCached(keySpace, contentColumnFamily, from);
-        eventListener.onDelete(Security.ZONE_CONTENT, from, accessControlManager.getCurrentUserId(), null, "op:move");
-        eventListener.onUpdate(Security.ZONE_CONTENT, to, accessControlManager.getCurrentUserId(), true, null, "op:move");
+        // move does not add resourceTypes to events.
+        eventListener.onDelete(Security.ZONE_CONTENT, from, accessControlManager.getCurrentUserId(), null, null, "op:move");
+        eventListener.onUpdate(Security.ZONE_CONTENT, to, accessControlManager.getCurrentUserId(), null, true, null, "op:move");
 
     }
 
@@ -718,7 +727,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
         // versionHistoryId is the UUID of the version history for this node.
 
-        String saveVersionId = (String)saveVersion.get(Content.getUuidField());
+        String saveVersionId = (String)saveVersion.get(UUID_FIELD);
         
         String versionHistoryId = (String)saveVersion.get(VERSION_HISTORY_ID_FIELD);
 
@@ -737,7 +746,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
         String saveBlockId = (String)saveVersion.get(BLOCKID_FIELD);
 
-        newVersion.put(Content.getUuidField(), newVersionId);
+        newVersion.put(UUID_FIELD, newVersionId);
         newVersion.put(PREVIOUS_VERSION_UUID_FIELD, saveVersionId);
         if (saveBlockId != null) {
             newVersion.put(PREVIOUS_BLOCKID_FIELD, saveBlockId);
@@ -779,6 +788,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                     final Map<String, Object> versionHistory = getCached(keySpace,
                             contentColumnFamily, versionHistoryId);
                     LOGGER.debug("Loaded Version History  {} {} ", versionHistoryId, versionHistory);
+                    versionHistory.remove(UUID_FIELD);
                   return Ordering.from(new Comparator<String>() {
                       public int compare(String o1, String o2) {
                         long l1 = (Long) versionHistory.get(o1);
@@ -880,7 +890,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         public Iterator<Content> iterator() {
             Iterator<Content> contentResultsIterator = null;
             try {
-              final DisposableIterator<Map<String,Object>> clientSearchKeysIterator = client.find(keySpace, contentColumnFamily, finalSearchProperties);
+              final DisposableIterator<Map<String,Object>> clientSearchKeysIterator = client.find(keySpace, contentColumnFamily, finalSearchProperties, ContentManagerImpl.this);
               contentResultsIterator = new PreemptiveIterator<Content>() {
                   Content contentResult;
 
@@ -930,7 +940,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         b.putAll(countSearch);
         b.put(StorageConstants.CUSTOM_STATEMENT_SET, "countestimate");
         b.put(StorageConstants.RAWRESULTS, true);
-        DisposableIterator<Map<String,Object>> counts = client.find(keySpace, contentColumnFamily, b.build());
+        DisposableIterator<Map<String,Object>> counts = client.find(keySpace, contentColumnFamily, b.build(), ContentManagerImpl.this);
         try {
             Map<String, Object> count = counts.next();
             return Integer.parseInt(String.valueOf(count.get("1")));

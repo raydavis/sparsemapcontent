@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Sakai Foundation (SF) under one
  * or more contributor license agreements. See the NOTICE file
  * distributed with this work for additional information
@@ -100,7 +100,15 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
         String key = this.getAclKey(objectType, objectPath);
         return StorageClientUtils.getFilterMap(getCached(keySpace, aclColumnFamily, key), null, null, PROTECTED_PROPERTIES, false);
     }
-    
+
+    /**
+     * Property principals are stored with keys of the form
+     * _pp_<principal>@<property>@<g|d> where principal is a principal. For the
+     * acl to be selected for the used of this session, they must have that
+     * principal. property is the name of the property. g or d is grant or deny.
+     * The value of the ACE is the bitmap for the ACE. All ACEs are selected and
+     * processed to form the ACE for the user, returned as a PropertyAcl.
+     */
     public PropertyAcl getPropertyAcl(String objectType, String objectPath) throws AccessDeniedException, StorageClientException {
         checkOpen();
         compilingPermissions.inc();
@@ -167,11 +175,17 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
     }
 
     // to sign a token we need setAcl permissions on the delegate path
-    public void signContentToken(Content token, String objectPath) throws StorageClientException, AccessDeniedException {
+    /**
+     * Content Tokens activate ACEs for a user that holds the content token. The
+     * token is signed by the secret key associated with the target Object/acl
+     * and the token is token content item is then returned for the caller to
+     * save.
+     */
+    public void signContentToken(Content token, String securityZone, String objectPath) throws StorageClientException, AccessDeniedException {
         checkOpen();
         check(Security.ZONE_CONTENT, objectPath, Permissions.CAN_WRITE_ACL);
         check(Security.ZONE_CONTENT, objectPath, Permissions.CAN_READ_ACL);
-        String key = this.getAclKey(Security.ZONE_CONTENT, objectPath);
+        String key = this.getAclKey(securityZone, objectPath);
         Map<String, Object> currentAcl = getCached(keySpace, aclColumnFamily, key);
         String secretKey = (String) currentAcl.get(_SECRET_KEY);
         principalTokenValidator.signToken(token, secretKey);
@@ -249,7 +263,7 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
         }
         LOGGER.debug("Updating ACL {} {} ", key, modifications);
         putCached(keySpace, aclColumnFamily, key, modifications, (currentAcl == null || currentAcl.size() == 0));
-        storeListener.onUpdate(objectType, objectPath,  getCurrentUserId(), false, null, "op:acl");
+        storeListener.onUpdate(objectType, objectPath,  getCurrentUserId(), "type:acl", false, null, "op:acl");
     }
     
     private boolean containsKey(String name, Map<String, Object> map1,
@@ -361,11 +375,10 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
                                     if ( !inspected.contains(proxyPrincipal)) {
                                         inspected.add(proxyPrincipal);
                                         LOGGER.debug("Is Dynamic {}, checking ",k);
-                                        List<Content> proxyPrincipalTokens = Lists.newArrayList();
                                         try {
                                             // principalTokenValidators are not safe code, hence we must re-enable full access control.
                                             compilingPermissions.suspend();
-                                            principalTokenResolver.resolveTokens(proxyPrincipal, proxyPrincipalTokens);
+                                            List<Content> proxyPrincipalTokens = principalTokenResolver.resolveTokens(proxyPrincipal);
                                             for ( Content proxyPrincipalToken : proxyPrincipalTokens ) {
                                                 if ( principalTokenValidator.validatePrincipal(proxyPrincipalToken, secretKey)) {
                                                     String pname = DYNAMIC_PRINCIPAL_STEM+proxyPrincipal;
