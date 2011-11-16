@@ -25,7 +25,7 @@ public class ResponseFactoryManagerImplTest {
 	public void testBind() {
 		ResponseFactoryManagerImpl r = new ResponseFactoryManagerImpl();
 		
-		ResponseFactory rf1 = new DefaultGetResponseFactory();
+		ResponseFactory rf1 = new DefaultResponseFactory();
 		ResponseFactory rf2 = Mockito.mock(ResponseFactory.class);
 		ResponseFactory rf3 = Mockito.mock(ResponseFactory.class);
 		Mockito.when(rf2.getBindings()).thenReturn( new ResponseBindingList(
@@ -57,7 +57,7 @@ public class ResponseFactoryManagerImplTest {
 		Mockito.when(resource.adaptTo(ResponseBindingList.class)).thenReturn(new ResponseBindingList(new RuntimeResponseBinding("GET","test/type",null,"json")));
 		Adaptable response = r.createResponse(resource);
 		Assert.assertNotNull(response);
-		Assert.assertTrue(response instanceof DefaultGetResponse);
+		Assert.assertTrue(response instanceof DefaultResponse);
 	}
 	
 	@Test
@@ -83,7 +83,7 @@ public class ResponseFactoryManagerImplTest {
 		
 		Adaptable response = r.createResponse(resource);
 		Assert.assertNotNull(response);
-		Assert.assertFalse(response instanceof DefaultGetResponse);
+		Assert.assertFalse(response instanceof DefaultResponse);
 	}
 	
 	@Test
@@ -123,6 +123,7 @@ public class ResponseFactoryManagerImplTest {
 			int ie = r.nextInt(extensions.length-1)+1;
 			Mockito.when(resource.adaptTo(ResponseBindingList.class)).thenReturn(
 					new ResponseBindingList(new RuntimeResponseBinding(methods[im], types[it], selectors[is], extensions[ie])));
+			@SuppressWarnings("unused")
 			Adaptable response = rm.createResponse(resource);
 		}
 		e = System.currentTimeMillis();

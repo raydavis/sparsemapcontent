@@ -26,8 +26,8 @@
         <configuration>
           <instructions>
             <Bundle-Category> sparse-map </Bundle-Category>
-            <Export-Package> uk.co.tfd.sm.api.resource.* </Export-Package>
-            <Private-Package>uk.co.tfd.sm.resource.*</Private-Package>
+            <Export-Package> uk.co.tfd.sm.api.resource.*, uk.co.tfd.sm.api.authn.*  </Export-Package>
+            <Private-Package>uk.co.tfd.sm.resource.*, uk.co.tfd.sm.authn.* </Private-Package>
             <Import-Package>
               *
             </Import-Package>
@@ -94,6 +94,17 @@
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>1.7.1</version>
+   </dependency>
+   <dependency>
+      <groupId>commons-fileupload</groupId>
+      <artifactId>commons-fileupload</artifactId>
+      <version>1.2.2</version>
+   </dependency>
+   <dependency>
+      <groupId>org.sakaiproject.nakamura</groupId>
+      <artifactId>uk.co.tfd.sm.integration</artifactId>
+      <version>0.1-SNAPSHOT</version>
+      <scope>test</scope>
    </dependency>
   </dependencies>
   <repositories>

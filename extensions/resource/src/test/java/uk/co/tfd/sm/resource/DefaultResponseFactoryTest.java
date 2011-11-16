@@ -33,7 +33,7 @@ import uk.co.tfd.sm.api.resource.ResponseFactory;
 import uk.co.tfd.sm.api.resource.binding.ResponseBindingList;
 import uk.co.tfd.sm.api.resource.binding.RuntimeResponseBinding;
 
-public class DefaultGetResponseFactoryTest {
+public class DefaultResponseFactoryTest {
 
 	@Mock
 	private Adaptable adaptable;
@@ -46,13 +46,13 @@ public class DefaultGetResponseFactoryTest {
 	@Mock
 	private Content content;
 
-	public DefaultGetResponseFactoryTest() {
+	public DefaultResponseFactoryTest() {
 		MockitoAnnotations.initMocks(this);
 	}
 
 	@Test
 	public void testGetBindings() {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		ResponseBindingList bl = fac.getBindings();
 		Assert.assertNotNull(bl);
 		Iterator<RuntimeResponseBinding> i = bl.iterator();
@@ -67,10 +67,10 @@ public class DefaultGetResponseFactoryTest {
 
 	@Test
 	public void testGetResource() throws IOException, StorageClientException, AccessDeniedException {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		Adaptable gr = fac.getResponse(adaptable);
 		Assert.assertNotNull(gr);
-		DefaultGetResponse dg = (DefaultGetResponse) gr;
+		DefaultResponse dg = (DefaultResponse) gr;
 		Mockito.when(adaptable.adaptTo(Resource.class)).thenReturn(resource);
 		Mockito.when(adaptable.adaptTo(Session.class)).thenReturn(session);
 		Mockito.when(adaptable.adaptTo(Content.class)).thenReturn(content);
@@ -96,10 +96,10 @@ public class DefaultGetResponseFactoryTest {
 
 	@Test
 	public void testGetResourceJson() throws IOException, StorageClientException, AccessDeniedException {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		Adaptable gr = fac.getResponse(adaptable);
 		Assert.assertNotNull(gr);
-		DefaultGetResponse dg = (DefaultGetResponse) gr;
+		DefaultResponse dg = (DefaultResponse) gr;
 		Mockito.when(adaptable.adaptTo(Resource.class)).thenReturn(resource);
 		Mockito.when(adaptable.adaptTo(Session.class)).thenReturn(session);
 		Mockito.when(adaptable.adaptTo(Content.class)).thenReturn(content);
@@ -120,10 +120,10 @@ public class DefaultGetResponseFactoryTest {
 	}
 	@Test
 	public void testGetResourceXml() throws IOException, StorageClientException, AccessDeniedException {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		Adaptable gr = fac.getResponse(adaptable);
 		Assert.assertNotNull(gr);
-		DefaultGetResponse dg = (DefaultGetResponse) gr;
+		DefaultResponse dg = (DefaultResponse) gr;
 		Mockito.when(adaptable.adaptTo(Resource.class)).thenReturn(resource);
 		Mockito.when(adaptable.adaptTo(Session.class)).thenReturn(session);
 		Mockito.when(adaptable.adaptTo(Content.class)).thenReturn(content);
@@ -139,10 +139,10 @@ public class DefaultGetResponseFactoryTest {
 	
 	@Test
 	public void testGetResourceInvalid() throws IOException, StorageClientException, AccessDeniedException {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		Adaptable gr = fac.getResponse(adaptable);
 		Assert.assertNotNull(gr);
-		DefaultGetResponse dg = (DefaultGetResponse) gr;
+		DefaultResponse dg = (DefaultResponse) gr;
 		Mockito.when(adaptable.adaptTo(Resource.class)).thenReturn(resource);
 		Mockito.when(adaptable.adaptTo(Session.class)).thenReturn(session);
 		Mockito.when(adaptable.adaptTo(Content.class)).thenReturn(content);
@@ -157,10 +157,10 @@ public class DefaultGetResponseFactoryTest {
 	
 	@Test
 	public void testGetResourceDenied() throws IOException, StorageClientException, AccessDeniedException {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		Adaptable gr = fac.getResponse(adaptable);
 		Assert.assertNotNull(gr);
-		DefaultGetResponse dg = (DefaultGetResponse) gr;
+		DefaultResponse dg = (DefaultResponse) gr;
 		Mockito.when(adaptable.adaptTo(Resource.class)).thenReturn(resource);
 		Mockito.when(adaptable.adaptTo(Session.class)).thenReturn(session);
 		Mockito.when(adaptable.adaptTo(Content.class)).thenReturn(content);
@@ -176,10 +176,10 @@ public class DefaultGetResponseFactoryTest {
 
 	@Test
 	public void testGetResourceError() throws IOException, StorageClientException, AccessDeniedException {
-		DefaultGetResponseFactory fac = new DefaultGetResponseFactory();
+		DefaultResponseFactory fac = new DefaultResponseFactory();
 		Adaptable gr = fac.getResponse(adaptable);
 		Assert.assertNotNull(gr);
-		DefaultGetResponse dg = (DefaultGetResponse) gr;
+		DefaultResponse dg = (DefaultResponse) gr;
 		Mockito.when(adaptable.adaptTo(Resource.class)).thenReturn(resource);
 		Mockito.when(adaptable.adaptTo(Session.class)).thenReturn(session);
 		Mockito.when(adaptable.adaptTo(Content.class)).thenReturn(content);
@@ -196,8 +196,8 @@ public class DefaultGetResponseFactoryTest {
 	@Test
 	public void testSort() throws IOException, StorageClientException, AccessDeniedException {
 		List<ResponseFactory> factories = Lists.newArrayList(
-				(ResponseFactory)new DefaultGetResponseFactory(),
-				new DefaultGetResponseFactory());
+				(ResponseFactory)new DefaultResponseFactory(),
+				new DefaultResponseFactory());
 		Collections.sort(factories);
 	}
 

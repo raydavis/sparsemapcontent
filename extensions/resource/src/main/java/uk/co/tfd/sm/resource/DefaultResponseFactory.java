@@ -8,7 +8,7 @@ import uk.co.tfd.sm.api.resource.binding.ResponseBindings;
 import uk.co.tfd.sm.api.resource.binding.RuntimeResponseBinding;
 
 @ResponseBindings(value = { @ResponseBinding(method = { "GET" }, extension = {}, selectors = {}, type = {}) })
-public class DefaultGetResponseFactory implements ResponseFactory {
+public class DefaultResponseFactory implements ResponseFactory {
 
 	public int compareTo(ResponseFactory arg0) {
 		return 1; // always last
@@ -19,6 +19,6 @@ public class DefaultGetResponseFactory implements ResponseFactory {
 	}
 
 	public Adaptable getResponse(Adaptable adaptable) {
-		return new DefaultGetResponse(adaptable);
+		return new DefaultResponse(adaptable);
 	}
 }

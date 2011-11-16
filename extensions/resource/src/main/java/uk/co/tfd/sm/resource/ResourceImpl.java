@@ -2,6 +2,7 @@ package uk.co.tfd.sm.resource;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.MessageFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -44,10 +45,15 @@ public class ResourceImpl implements Resource {
 	private HttpServletResponse response;
 	private Date lastModified;
 	private MediaType mediaType;
+	/**
+	 * The last name path is the longest path before a / in the request URL. 
+	 * It indicates the resource that should be created if one would be created.
+	 */
+	private String toCreatePath;
 
 	public ResourceImpl(Adaptable resourceHandler, HttpServletRequest request,
 			HttpServletResponse response, Session session, Content content, String resolvedPath,
-			String requestPath) {
+			String requestPath, String lastNamePath) {
 		this.resourceHandler = resourceHandler;
 		this.request = request;
 		this.response = response;
@@ -56,13 +62,20 @@ public class ResourceImpl implements Resource {
 		this.resolvedPath = resolvedPath;
 		this.requestPath = requestPath;
 		this.pathInfo = requestPath.substring(resolvedPath.length());
+		this.toCreatePath = lastNamePath;
 		int lastSlash = pathInfo.lastIndexOf('/');
 		if (lastSlash == pathInfo.length() - 1) {
-			setParts("");
-		} else if (lastSlash >= 0) {
-			setParts(pathInfo.substring(lastSlash + 1));
+			this.requestName = "";
+			setParts(""); // ends with /
 		} else {
-			setParts(pathInfo);
+			int dot = pathInfo.indexOf(".", lastSlash+1);
+			if ( dot >= 0 ) {
+				this.requestName = pathInfo.substring(lastSlash+1,dot);
+				setParts(pathInfo.substring(dot)); // there was a /
+			} else {
+				this.requestName = pathInfo.substring(lastSlash+1);
+				setParts("");
+			}
 		}
 		List<RuntimeResponseBinding> bindingList = Lists.newArrayList();
 		resourceType = getType();
@@ -116,23 +129,15 @@ public class ResourceImpl implements Resource {
 		String[] parts = StringUtils.split(namePathInfo, '.');
 		switch (parts.length) {
 		case 0:
-			this.requestName = "";
 			this.requestSelectors = new String[0];
 			this.requestExt = "";
 			break;
 		case 1:
-			this.requestName = parts[0];
-			this.requestSelectors = new String[0];
-			this.requestExt = "";
-			break;
-		case 2:
-			this.requestName = parts[0];
-			this.requestSelectors = new String[0];
-			this.requestExt = parts[1];
+            this.requestSelectors = new String[0];
+			this.requestExt = parts[0];
 			break;
 		default:
-			this.requestName = parts[0];
-			this.requestSelectors = Arrays.copyOfRange(parts, 1,
+			this.requestSelectors = Arrays.copyOfRange(parts, 0,
 					parts.length - 1);
 			this.requestExt = parts[parts.length - 1];
 			break;
@@ -202,6 +207,18 @@ public class ResourceImpl implements Resource {
 
 	public String getResourceType() {
 		return resourceType;
+	}
+	
+	public String getToCreatePath() {
+		return toCreatePath;
+	}
+	
+	@Override
+	public String toString() {
+		return MessageFormat.format(
+				"requestPath=[{0}] resource path=[{1}], resourceType=[{2}], selectors={3}, ext=[{4}], toCreatePath=[{5}]",
+			    requestPath, resolvedPath, resourceType, Arrays.toString(requestSelectors),
+				requestExt, toCreatePath);
 	}
 
 }
