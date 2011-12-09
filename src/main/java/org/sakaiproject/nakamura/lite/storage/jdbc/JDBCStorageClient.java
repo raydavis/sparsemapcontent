@@ -419,7 +419,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
                     keySpace, columnFamily, key }, e);
             throw new StorageClientException(e.getMessage(), e);
         } finally {
-            close(statementCache);
+            closeStatementCache(statementCache);
         }
     }
 
@@ -974,7 +974,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         }
     }
 
-    private void close(Map<String, PreparedStatement> statementCache) {
+    public void closeStatementCache(Map<String, PreparedStatement> statementCache) {
         for (PreparedStatement pst : statementCache.values()) {
             if (pst != null) {
                 try {
