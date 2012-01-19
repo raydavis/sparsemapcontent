@@ -38,12 +38,12 @@ import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.util.PreemptiveIterator;
-import org.sakaiproject.nakamura.lite.CachingManager;
+import org.sakaiproject.nakamura.lite.CachingManagerImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AccessControlManagerImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AuthenticatorImpl;
-import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
-import org.sakaiproject.nakamura.lite.storage.SparseRow;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.DisposableIterator;
+import org.sakaiproject.nakamura.lite.storage.spi.SparseRow;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,12 +60,16 @@ import com.google.common.collect.Maps;
  * @author ieb
  *
  */
-public class AuthorizableManagerImpl extends CachingManager implements AuthorizableManager {
+public class AuthorizableManagerImpl extends CachingManagerImpl implements AuthorizableManager {
 
     private static final String DISABLED_PASSWORD_HASH = "--disabled--";
     private static final Set<String> FILTER_ON_UPDATE = ImmutableSet.of(Authorizable.ID_FIELD,
-            Authorizable.PASSWORD_FIELD);
+            Authorizable.PASSWORD_FIELD, Authorizable.LOGIN_ENABLED_PERIOD_FIELD);
     private static final Set<String> FILTER_ON_CREATE = ImmutableSet.of(Authorizable.ID_FIELD,
+            Authorizable.PASSWORD_FIELD, Authorizable.LOGIN_ENABLED_PERIOD_FIELD);
+    private static final Set<String> ADMIN_FILTER_ON_UPDATE = ImmutableSet.of(Authorizable.ID_FIELD,
+            Authorizable.PASSWORD_FIELD);
+    private static final Set<String> ADMIN_FILTER_ON_CREATE = ImmutableSet.of(Authorizable.ID_FIELD,
             Authorizable.PASSWORD_FIELD);
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthorizableManagerImpl.class);
     private String currentUserId;
@@ -78,6 +82,8 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
     private Authenticator authenticator;
     private StoreListener storeListener;
     private Session session;
+    private Set<String> filterOnUpdate;
+    private Set<String> filterOnCreate;
 
     public AuthorizableManagerImpl(User currentUser, Session session, StorageClient client,
             Configuration configuration, AccessControlManagerImpl accessControlManager,
@@ -89,12 +95,19 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
             throw new RuntimeException("Current User ID shoud not be null");
         }
         this.thisUser = currentUser;
+        if ( thisUser.isAdmin() ) {
+            filterOnUpdate = ADMIN_FILTER_ON_UPDATE;
+            filterOnCreate = ADMIN_FILTER_ON_CREATE;
+        } else {
+            filterOnUpdate = FILTER_ON_UPDATE;
+            filterOnCreate = FILTER_ON_CREATE;
+        }
         this.session = session;
         this.client = client;
         this.accessControlManager = accessControlManager;
         this.keySpace = configuration.getKeySpace();
         this.authorizableColumnFamily = configuration.getAuthorizableColumnFamily();
-        this.authenticator = new AuthenticatorImpl(client, configuration);
+        this.authenticator = new AuthenticatorImpl(client, configuration, sharedCache);
         this.closed = false;
         this.storeListener = storeListener;
         accessControlManager.setAuthorizableManager(this);
@@ -227,7 +240,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
                     if (newMember.isModified()) {
                         Map<String, Object> encodedProperties = StorageClientUtils
                                 .getFilteredAndEcodedMap(newMember.getPropertiesForUpdate(),
-                                        FILTER_ON_UPDATE);
+                                        filterOnUpdate);
                         encodedProperties.put(Authorizable.ID_FIELD, newMember.getId());
                         putCached(keySpace, authorizableColumnFamily, newMember.getId(),
                                 encodedProperties, newMember.isNew());
@@ -246,7 +259,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
                     if (retiredMember.isModified()) {
                         Map<String, Object> encodedProperties = StorageClientUtils
                                 .getFilteredAndEcodedMap(retiredMember.getPropertiesForUpdate(),
-                                        FILTER_ON_UPDATE);
+                                        filterOnUpdate);
                         encodedProperties.put(Authorizable.ID_FIELD, retiredMember.getId());
                         putCached(keySpace, authorizableColumnFamily, retiredMember.getId(),
                                 encodedProperties, retiredMember.isNew());
@@ -274,7 +287,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         Map<String, Object> beforeUpdateProperties = authorizable.getOriginalProperties();
 
         Map<String, Object> encodedProperties = StorageClientUtils.getFilteredAndEcodedMap(
-                authorizable.getPropertiesForUpdate(), FILTER_ON_UPDATE);
+                authorizable.getPropertiesForUpdate(), filterOnUpdate);
         if (withTouch) {
             encodedProperties.put(Authorizable.LASTMODIFIED_FIELD, System.currentTimeMillis());
             encodedProperties.put(Authorizable.LASTMODIFIED_BY_FIELD,
@@ -304,6 +317,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         }
     }
 
+
     public boolean createAuthorizable(String authorizableId, String authorizableName,
             String password, Map<String, Object> properties) throws AccessDeniedException,
             StorageClientException {
@@ -328,7 +342,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
             return false;
         }
         Map<String, Object> encodedProperties = StorageClientUtils.getFilteredAndEcodedMap(
-                properties, FILTER_ON_CREATE);
+                properties, filterOnCreate);
         encodedProperties.put(Authorizable.ID_FIELD, authorizableId);
         encodedProperties
                 .put(Authorizable.NAME_FIELD, authorizableName);
@@ -346,6 +360,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         putCached(keySpace, authorizableColumnFamily, authorizableId, encodedProperties, true);
         return true;
     }
+
 
     private void checkId(String authorizableId) throws StorageClientException {
         if ( authorizableId.charAt(0) == '_') {

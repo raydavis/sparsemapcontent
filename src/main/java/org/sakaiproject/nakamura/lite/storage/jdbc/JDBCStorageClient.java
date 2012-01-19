@@ -47,21 +47,20 @@ import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.StorageConstants;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.util.PreemptiveIterator;
-import org.sakaiproject.nakamura.lite.CachingManager;
-import org.sakaiproject.nakamura.lite.DirectCacheAccess;
-import org.sakaiproject.nakamura.lite.content.FileStreamContentHelper;
-import org.sakaiproject.nakamura.lite.content.InternalContent;
-import org.sakaiproject.nakamura.lite.content.StreamedContentHelper;
-import org.sakaiproject.nakamura.lite.storage.Disposable;
-import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
-import org.sakaiproject.nakamura.lite.storage.Disposer;
-import org.sakaiproject.nakamura.lite.storage.RowHasher;
-import org.sakaiproject.nakamura.lite.storage.SparseMapRow;
-import org.sakaiproject.nakamura.lite.storage.SparseRow;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
-import org.sakaiproject.nakamura.lite.storage.StorageClientListener;
-import org.sakaiproject.nakamura.lite.types.Types;
+import org.sakaiproject.nakamura.lite.storage.spi.DirectCacheAccess;
+import org.sakaiproject.nakamura.lite.storage.spi.Disposable;
+import org.sakaiproject.nakamura.lite.storage.spi.DisposableIterator;
+import org.sakaiproject.nakamura.lite.storage.spi.Disposer;
+import org.sakaiproject.nakamura.lite.storage.spi.RowHasher;
+import org.sakaiproject.nakamura.lite.storage.spi.SparseMapRow;
+import org.sakaiproject.nakamura.lite.storage.spi.SparseRow;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClientListener;
+import org.sakaiproject.nakamura.lite.storage.spi.content.FileStreamContentHelper;
+import org.sakaiproject.nakamura.lite.storage.spi.content.StreamedContentHelper;
+import org.sakaiproject.nakamura.lite.storage.spi.types.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,6 +73,10 @@ import com.google.common.collect.Sets;
 
 public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
 
+
+
+
+
     public class SlowQueryLogger {
         // only used to define the logger.
     }
@@ -83,6 +86,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     static final Logger SQL_LOGGER = LoggerFactory.getLogger(SlowQueryLogger.class);
     private static final String SQL_VALIDATE = "validate";
     private static final String SQL_CHECKSCHEMA = "check-schema";
+    private static final String SQL_NAME_PADDING = "sql-name-padding";
+    private static final String SQL_MAX_NAME_LENGTH = "sql-max-name-length";
     private static final String SQL_COMMENT = "#";
     private static final String SQL_EOL = ";";
     public static final String SQL_INDEX_COLUMN_NAME_SELECT = "index-column-name-select";
@@ -131,6 +136,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     private long verySlowQueryThreshold;
     private Object desponseLock = new Object();
     private StorageClientListener storageClientListener;
+    private boolean sqlNamePadding;
+    private int maxNameLength;
 
     public JDBCStorageClient(JDBCStorageClientPool jdbcStorageClientConnectionPool,
             Map<String, Object> properties, Map<String, Object> sqlConfig, Set<String> indexColumns, Set<String> indexColumnTypes, Map<String, String> indexColumnsNames) throws SQLException,
@@ -156,6 +163,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         if (rowidHash == null) {
             rowidHash = "MD5";
         }
+        this.sqlNamePadding = Boolean.parseBoolean(StorageClientUtils.getSetting(getSql(SQL_NAME_PADDING),"false"));
+        this.maxNameLength = Integer.parseInt(StorageClientUtils.getSetting(getSql(SQL_MAX_NAME_LENGTH),"50"));
         active = true;
         if ( indexColumnsNames != null ) {
             indexer = new WideColumnIndexer(this,indexColumnsNames, indexColumnTypes, sqlConfig);
@@ -182,8 +191,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         String rid = rowHash(keySpace, columnFamily, key);
         return internalGet(keySpace, columnFamily, rid, null); // gets through this route should have already consulted the cache.
     }
-    Map<String, Object> internalGet(String keySpace, String columnFamily, String rid, CachingManager cachingManager) throws StorageClientException {
-        if ( cachingManager instanceof DirectCacheAccess ) {
+    Map<String, Object> internalGet(String keySpace, String columnFamily, String rid, DirectCacheAccess cachingManager) throws StorageClientException {
+        if ( cachingManager != null ) {
             CacheHolder ch = cachingManager.getFromCache(rid);
             if ( ch != null ) {
                 Map<String, Object> cached = ch.get();
@@ -232,8 +241,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             close(body, "B");
             close(selectStringRow, "A");
         }
-        if ( cachingManager instanceof DirectCacheAccess) {
-            cachingManager.putToCache(rid, new CacheHolder(result));
+        if ( cachingManager != null ) {
+            cachingManager.putToCache(rid, new CacheHolder(result),true);
         }
         return result;
     }
@@ -277,6 +286,10 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             Map<String, Object> m = get(keySpace, columnFamily, key);
             if ( storageClientListener != null ) {
                 storageClientListener.before(keySpace,columnFamily,key,m);
+            }
+            if ( TRUE.equals(m.get(DELETED_FIELD)) ) {
+                // if the map was previously deleted, delete all content since we don't want the old map becoming part of the new map.
+                m.clear();
             }
             for (Entry<String, Object> e : values.entrySet()) {
                 String k = e.getKey();
@@ -409,7 +422,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
                     keySpace, columnFamily, key }, e);
             throw new StorageClientException(e.getMessage(), e);
         } finally {
-            close(statementCache);
+            closeStatementCache(statementCache);
         }
     }
 
@@ -611,7 +624,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         }
     }
 
-    <T extends Disposable> T registerDisposable(T disposable) {
+    public <T extends Disposable> T registerDisposable(T disposable) {
         // this should not be necessary, but just in case some one is sharing the client between threads.
         synchronized (desponseLock) {
             toDispose.add(disposable);
@@ -777,15 +790,15 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         return jcbcStorageClientConnection.getConnection();
     }
 
-    public DisposableIterator<Map<String, Object>> listChildren(String keySpace, String columnFamily, String key, CachingManager cachingManager) throws StorageClientException {
+    public DisposableIterator<Map<String, Object>> listChildren(String keySpace, String columnFamily, String key, DirectCacheAccess cachingManager) throws StorageClientException {
         // this will load all child object directly.
         String hash = rowHash(keySpace, columnFamily, key);
         LOGGER.debug("Finding {}:{}:{} as {} ",new Object[]{keySpace,columnFamily, key, hash});
-        return find(keySpace, columnFamily, ImmutableMap.of(InternalContent.PARENT_HASH_FIELD, (Object)hash, StorageConstants.CUSTOM_STATEMENT_SET, "listchildren"), cachingManager);
+        return find(keySpace, columnFamily, ImmutableMap.of(Content.PARENT_HASH_FIELD, (Object)hash, StorageConstants.CUSTOM_STATEMENT_SET, "listchildren"), cachingManager);
     }
 
     public DisposableIterator<Map<String,Object>> find(final String keySpace, final String columnFamily,
-            Map<String, Object> properties, CachingManager cachingManager) throws StorageClientException {
+            Map<String, Object> properties, DirectCacheAccess cachingManager) throws StorageClientException {
         checkClosed();
         return indexer.find(keySpace, columnFamily, properties, cachingManager);
         
@@ -964,7 +977,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         }
     }
 
-    private void close(Map<String, PreparedStatement> statementCache) {
+    public void closeStatementCache(Map<String, PreparedStatement> statementCache) {
         for (PreparedStatement pst : statementCache.values()) {
             if (pst != null) {
                 try {
@@ -1010,11 +1023,10 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             }
             // maxCols contiains the max col number for each cf.
             // cnames contains a map of column Families each containing a map of columns with numbers.
-            
             for (String k : Sets.union(indexColumns, AUTO_INDEX_COLUMNS)) {
                 String[] cf = StringUtils.split(k,":",2);
                 if ( !cnames.containsKey(k) ) {
-                    String cv = makeNameSafeSQL(cf[1]);
+                    String cv = makeNameSafeSQL(cf[1], sqlNamePadding, maxNameLength);
                     if ( usedColumns.contains(cf[0]+":"+cv)) {
                         LOGGER.info(
                                 "Column already exists, please provide explicit mapping indexing {}  already used column {} ",
@@ -1096,20 +1108,33 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         }
     }
 
-    private String makeNameSafeSQL(String name) {
+    private String makeNameSafeSQL(String name, boolean padding, int maxLength) {
         if ( COLUMN_NAME_MAPPING.containsKey(name)) {
             return COLUMN_NAME_MAPPING.get(name);
         }
         char[] c = name.toCharArray();
-        for(int i = 0; i < c.length; i++) {
+        char[] cout = new char[c.length];
+        int e = 0;
+        int start = 0;
+        if ( c[0] == '_') {
+            if ( padding ) {
+                cout[e] = 'X';
+                e++;
+            }
+            start = 1;
+        } 
+        for(int i = start; i < c.length; i++) {
             if ( !Character.isLetterOrDigit(c[i]) ) {
-                c[i] = '_';
+                if ( !padding ) {
+                    cout[e] = '_';
+                    e++;
+                }
+            } else {
+                cout[e] = c[i];
+                e++;
             }
         }
-        if ( c[0] == '_') {
-            c[0] = 'X';
-        }
-        return new String(c);
+        return new String(cout,0,Math.min(e, maxLength));
     }
 
     public long getSlowQueryThreshold() {

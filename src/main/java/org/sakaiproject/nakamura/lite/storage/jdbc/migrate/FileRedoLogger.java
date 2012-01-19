@@ -10,7 +10,7 @@ import java.util.Date;
 import java.util.Map;
 
 import org.sakaiproject.nakamura.api.lite.Feedback;
-import org.sakaiproject.nakamura.lite.storage.StorageClientListener;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClientListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +36,11 @@ public class FileRedoLogger implements StorageClientListener {
         logFileNameFormat = new SimpleDateFormat("yyyyMMddHHmmssZ");
         this.feedback = feedback;
         this.redoLocation = new File(redoLogLocation,logFileNameFormat.format(new Date()));
-        this.redoLocation.mkdirs();
+        if( !this.redoLocation.exists() ) {
+            if (!this.redoLocation.mkdirs() ) {
+                throw new IllegalArgumentException("Unable to create redo log at "+this.redoLocation.getPath());
+            }
+        }
         
     }
 

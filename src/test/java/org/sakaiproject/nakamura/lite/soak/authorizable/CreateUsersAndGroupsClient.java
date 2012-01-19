@@ -33,8 +33,8 @@ import org.sakaiproject.nakamura.lite.accesscontrol.AuthenticatorImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.PrincipalValidatorResolverImpl;
 import org.sakaiproject.nakamura.lite.authorizable.AuthorizableManagerImpl;
 import org.sakaiproject.nakamura.lite.soak.AbstractScalingClient;
-import org.sakaiproject.nakamura.lite.storage.ConcurrentLRUMap;
-import org.sakaiproject.nakamura.lite.storage.StorageClientPool;
+import org.sakaiproject.nakamura.lite.storage.spi.ConcurrentLRUMap;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClientPool;
 
 import java.util.Map;
 
@@ -55,7 +55,7 @@ public class CreateUsersAndGroupsClient extends AbstractScalingClient {
             super.setup();
             String tname = String.valueOf(Thread.currentThread().getId())
                     + String.valueOf(System.currentTimeMillis());
-            AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+            AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
             User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
             AccessControlManagerImpl accessControlManagerImpl = new AccessControlManagerImpl(

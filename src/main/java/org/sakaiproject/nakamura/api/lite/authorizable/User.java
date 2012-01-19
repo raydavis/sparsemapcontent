@@ -23,15 +23,18 @@ import org.apache.commons.lang.StringUtils;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.util.EnabledPeriod;
 
 import java.security.Principal;
+import java.util.Calendar;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 
 import javax.security.auth.Subject;
 
 /**
- * Represetnation of the User.
+ * Representation of the User.
  */
 public class User extends Authorizable {
 
@@ -53,7 +56,8 @@ public class User extends Authorizable {
         this(userMap, null);
     }
 
-    public User(Map<String, Object> userMap, Session session) throws StorageClientException, AccessDeniedException {
+    public User(Map<String, Object> userMap, Session session) throws StorageClientException,
+            AccessDeniedException {
         super(userMap, session);
     }
 
@@ -90,6 +94,49 @@ public class User extends Authorizable {
             }
         }
         return false;
+    }
+
+    /**
+     * @return returns true if login is enabled for this user.
+     * @since 1.4
+     */
+    public boolean isLoginEnabled() {
+        return EnabledPeriod.isInEnabledPeriod((String) getProperty(LOGIN_ENABLED_PERIOD_FIELD));
+    }
+
+    /**
+     * Sets the login enabled time
+     * 
+     * @param from
+     *            UTC ms time after which user login is enabled. < 0 means no
+     *            start time.
+     * @param to
+     *            UTC ms time before which the user login is enabled, < 0 means
+     *            no end time.
+     * @param day
+     *            true if the time represents a day rather than a time
+     * @param timeZone
+     *            the timezone which both these times should be interpreted in
+     *            (relevant for a day setting).
+     * @since 1.4
+     */
+    public void setLoginEnabled(long from, long to, boolean day, TimeZone timeZone) {
+        String enabledSetting = EnabledPeriod.getEnableValue(from, to, day, timeZone);
+        if (enabledSetting == null) {
+            removeProperty(LOGIN_ENABLED_PERIOD_FIELD);
+        } else {
+            setProperty(LOGIN_ENABLED_PERIOD_FIELD, enabledSetting);
+        }
+    }
+
+    /**
+     * @return an array length 2 of the times when the user is enabled in order
+     *         from to. null indicates no time specified for either from or to
+     *         times. This user will be allowed to login between those times.
+     * @since 1.4
+     */
+    public Calendar[] getLoginEnabledPeriod() {
+        return EnabledPeriod.getEnabledPeriod((String) getProperty(LOGIN_ENABLED_PERIOD_FIELD));
     }
 
 }

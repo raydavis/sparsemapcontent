@@ -38,7 +38,7 @@ import org.sakaiproject.nakamura.lite.accesscontrol.AuthenticatorImpl;
 import org.sakaiproject.nakamura.lite.authorizable.AuthorizableManagerImpl;
 import org.sakaiproject.nakamura.lite.content.ContentManagerImpl;
 import org.sakaiproject.nakamura.lite.lock.LockManagerImpl;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
 
 import com.google.common.collect.Maps;
 
@@ -69,9 +69,10 @@ public class SessionImpl implements Session {
                 BaseColumnFamilyCacheManager.getCache(configuration,
                         configuration.getAclColumnFamily(), storageCacheManager), storeListener,
                 principalValidatorResolver);
+        Map<String, CacheHolder> authorizableCache = BaseColumnFamilyCacheManager.getCache(configuration,
+                configuration.getAuthorizableColumnFamily(), storageCacheManager);
         authorizableManager = new AuthorizableManagerImpl(currentUser, this, client, configuration,
-                accessControlManager, BaseColumnFamilyCacheManager.getCache(configuration,
-                        configuration.getAuthorizableColumnFamily(), storageCacheManager),
+                accessControlManager, authorizableCache,
                 storeListener);
 
         contentManager = new ContentManagerImpl(client, accessControlManager, configuration,
@@ -82,7 +83,7 @@ public class SessionImpl implements Session {
                 BaseColumnFamilyCacheManager.getCache(configuration,
                         configuration.getLockColumnFamily(), storageCacheManager));
 
-        authenticator = new AuthenticatorImpl(client, configuration);
+        authenticator = new AuthenticatorImpl(client, configuration, authorizableCache);
 
         this.storeListener = storeListener;
         this.storageCacheManager = storageCacheManager;
@@ -92,6 +93,7 @@ public class SessionImpl implements Session {
 
     public void logout() throws ClientPoolException {
         if (closedAt == null) {
+            commit();
             accessControlManager.close();
             authorizableManager.close();
             contentManager.close();

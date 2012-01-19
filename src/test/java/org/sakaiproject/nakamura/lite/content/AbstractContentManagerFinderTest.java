@@ -45,8 +45,8 @@ import org.sakaiproject.nakamura.lite.accesscontrol.AccessControlManagerImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AuthenticatorImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.PrincipalValidatorResolverImpl;
 import org.sakaiproject.nakamura.lite.authorizable.AuthorizableActivator;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
-import org.sakaiproject.nakamura.lite.storage.StorageClientPool;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClientPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +92,7 @@ public abstract class AbstractContentManagerFinderTest {
     
     @Test
     public void testSimpleFind() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -119,7 +119,7 @@ public abstract class AbstractContentManagerFinderTest {
 
     @Test
     public void testSimpleFindWithSort() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -146,7 +146,7 @@ public abstract class AbstractContentManagerFinderTest {
 
     @Test
     public void testSimpleArrayFind() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -176,7 +176,7 @@ public abstract class AbstractContentManagerFinderTest {
 
     @Test
     public void testFindNoFilter() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -1078,7 +1078,7 @@ public abstract class AbstractContentManagerFinderTest {
    */
   private ContentManager setupMultiValuedIndexSearch() throws StorageClientException,
       AccessDeniedException {
-    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
     User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
     AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -1179,10 +1179,10 @@ public abstract class AbstractContentManagerFinderTest {
   @Test
   public void testFindAfterChangingPropertyValue() throws Exception {
 
-    String oldValue = "testFindAfterChangingPropertyValue-val1";
-    String newValue = "testFindAfterChangingPropertyValue-newval";
+    String oldValue = "testFindAfterChangingPropertyValue-val1-"+System.currentTimeMillis();
+    String newValue = "testFindAfterChangingPropertyValue-newval-"+System.currentTimeMillis();
 
-    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
     User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
     AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
             currentUser, configuration, null, new LoggingStorageListener(), principalValidatorResolver);
@@ -1215,7 +1215,7 @@ public abstract class AbstractContentManagerFinderTest {
     Content foundAfterUpdate = findOfNewVal.iterator().next();
     Assert.assertEquals(newValue, foundAfterUpdate.getProperty("sakai:marker"));
 
-    // strangely, find on val1 still finds the record with its OLD value
+    // find on the old val should return an empty iterator
     Iterable<Content> findOfOldval = contentManager.find(ImmutableMap.of("sakai:marker", (Object) oldValue));
     // if find() is correct this line should pass
     Assert.assertFalse(findOfOldval.iterator().hasNext());
@@ -1223,7 +1223,7 @@ public abstract class AbstractContentManagerFinderTest {
 
   @Test
   public void testCountTest() throws StorageClientException, AccessDeniedException {
-      AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+      AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
       User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
       AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,

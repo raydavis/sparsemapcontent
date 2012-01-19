@@ -105,6 +105,18 @@ public class Authorizable {
      * The ID of the authorizable that created this authorizable.
      */
     public static final String CREATED_BY_FIELD = "createdBy";
+    
+    /**
+     * If the fields is set, then it defines the period during which the user
+     * may login. The fields upto 2 ISO8601 formatted dates, defining the start
+     * and end periods. If the value starts with a , eg ,2011-12-10 then the
+     * period is assumed to end on the date provided. If it ends with a , eg
+     * 2011-12-10, then the period starts on the date provided. If the date
+     * contains no time, the period is for the day in the timezone of the server
+     * time. If the period contains a time then the its precise.
+     */
+    public static final String LOGIN_ENABLED_PERIOD_FIELD = "loginEnabledPeriod";
+
 
     /**
      * A set of properties to filter out when sending out and setting.
@@ -240,6 +252,18 @@ public class Authorizable {
         }
         return StorageClientUtils.getFilterMap(authorizableMap, modifiedMap, null,
                 FILTER_PROPERTIES, false);
+    }
+    
+    /**
+     * Returns the properties of the authorizable taking into account any modifications. This includes fields that could be modified.
+     * @return
+     */
+    public  Map<String, Object> getProperties() {
+        if (!readOnly && principalsModified) {
+            modifiedMap.put(PRINCIPALS_FIELD, StringUtils.join(principals, ';'));
+        }
+        return StorageClientUtils.getFilterMap(authorizableMap, modifiedMap, null,
+                PRIVATE_PROPERTIES, false);
     }
 
     /**

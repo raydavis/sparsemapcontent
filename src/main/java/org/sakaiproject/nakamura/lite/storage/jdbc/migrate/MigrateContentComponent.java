@@ -25,12 +25,12 @@ import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.lite.SessionImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AccessControlManagerImpl;
-import org.sakaiproject.nakamura.lite.content.BlockSetContentHelper;
-import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
-import org.sakaiproject.nakamura.lite.storage.SparseRow;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
 import org.sakaiproject.nakamura.lite.storage.jdbc.Indexer;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.DisposableIterator;
+import org.sakaiproject.nakamura.lite.storage.spi.SparseRow;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.content.BlockSetContentHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -102,7 +102,7 @@ public class MigrateContentComponent implements MigrateContentService {
 
 
     @Activate
-    public void activate(Map<String, Object> properties) throws StorageClientException,
+    public synchronized void activate(Map<String, Object> properties) throws StorageClientException,
             AccessDeniedException, IOException {
         redoLogLocation = StorageClientUtils.getSetting(properties.get(PROP_REDOLOG_LOCATION), DEFAULT_REDOLOG_LOCATION);
         maxLogFileSize = StorageClientUtils.getSetting(properties.get(PROP_MAX_LOG_SIZE), DEFAULT_MAX_LOG_SIZE);
@@ -232,7 +232,7 @@ public class MigrateContentComponent implements MigrateContentService {
     
 
 
-    private void reindex(boolean dryRun, StorageClient jdbcClient, CacheAwareMigrationManager migrationManager, String keySpace,
+    private void reindex(boolean dryRun, JDBCStorageClient jdbcClient, CacheAwareMigrationManager migrationManager, String keySpace,
             String columnFamily, Indexer indexer, DependencySequence propertyMigrators,
             IdExtractor idExtractor, int limit, Feedback feedback, boolean reindexAll) throws StorageClientException {
         long objectCount = jdbcClient.allCount(keySpace, columnFamily);
@@ -291,13 +291,7 @@ public class MigrateContentComponent implements MigrateContentService {
                         LOGGER.warn(e.getMessage(), e);
                         feedback.exception(e);
                     } finally {
-                        for(PreparedStatement statement : statementCache.values()) {
-                            try {
-                              statement.close();
-                            } catch (SQLException e) {
-                                LOGGER.warn("Failed to close all prepared statements. Could result in a leak of database cursors.");
-                            }
-                        }
+                        jdbcClient.closeStatementCache(statementCache);
                     }
                 }
             } finally {

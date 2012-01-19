@@ -53,8 +53,8 @@ import org.sakaiproject.nakamura.lite.ConfigurationImpl;
 import org.sakaiproject.nakamura.lite.LoggingStorageListener;
 import org.sakaiproject.nakamura.lite.authorizable.AuthorizableActivator;
 import org.sakaiproject.nakamura.lite.authorizable.AuthorizableManagerImpl;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
-import org.sakaiproject.nakamura.lite.storage.StorageClientPool;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClientPool;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 
@@ -103,7 +103,7 @@ public abstract class AbstractAccessControlManagerImplTest {
 
     @Test
     public void test() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration, null);
         User currentUser = authenticator.authenticate("admin", "admin");
         String u1 = "user1-" + System.currentTimeMillis();
         String u2 = "user2-" + System.currentTimeMillis();
@@ -145,7 +145,7 @@ public abstract class AbstractAccessControlManagerImplTest {
 
     @Test
     public void testKern1515() throws Exception {
-        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration, null);
         User currentUser = authenticator.authenticate("admin", "admin");
         String u3 = "user3-" + System.currentTimeMillis();
         String basepath = "testpath" + System.currentTimeMillis();
@@ -183,7 +183,7 @@ public abstract class AbstractAccessControlManagerImplTest {
 
     @Test
     public void testPrivileges() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration, null);
         User currentUser = authenticator.authenticate("admin", "admin");
         String u1 = "user1-" + System.currentTimeMillis();
         String u2 = "user2-" + System.currentTimeMillis();
@@ -408,7 +408,7 @@ public abstract class AbstractAccessControlManagerImplTest {
 
     @Test
     public void testTokenPermission() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration, null);
         User currentUser = authenticator.authenticate("admin", "admin");
         String u3 = "user3-" + System.currentTimeMillis();
 
@@ -465,7 +465,7 @@ public abstract class AbstractAccessControlManagerImplTest {
     @Test
     public void testTokenPermissionWithPlugin() throws StorageClientException,
             AccessDeniedException {
-        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl authenticator = new AuthenticatorImpl(client, configuration, null);
         User currentUser = authenticator.authenticate("admin", "admin");
         String u3 = "user3-" + System.currentTimeMillis();
 

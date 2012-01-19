@@ -35,11 +35,11 @@ import org.sakaiproject.nakamura.api.lite.RemoveProperty;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.StorageConstants;
+import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.util.PreemptiveIterator;
-import org.sakaiproject.nakamura.lite.CachingManager;
-import org.sakaiproject.nakamura.lite.content.InternalContent;
-import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
-import org.sakaiproject.nakamura.lite.storage.Disposer;
+import org.sakaiproject.nakamura.lite.storage.spi.DirectCacheAccess;
+import org.sakaiproject.nakamura.lite.storage.spi.DisposableIterator;
+import org.sakaiproject.nakamura.lite.storage.spi.Disposer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,12 +114,12 @@ public class WideColumnIndexer extends AbstractIndexer {
             }
             
             if (!StorageClientUtils.isRoot(key) 
-                    && getColumnName(keySpace, columnFamily, InternalContent.PARENT_HASH_FIELD) != null) {
+                    && getColumnName(keySpace, columnFamily, Content.PARENT_HASH_FIELD) != null) {
                 String parent = StorageClientUtils.getParentObjectPath(key);
                 String hash = client.rowHash(keySpace, columnFamily, parent);
                 LOGGER.debug("Hash of {}:{}:{} is {} ", new Object[] { keySpace, columnFamily,
                         parent, hash });
-                updateColumns.put(InternalContent.PARENT_HASH_FIELD, hash);
+                updateColumns.put(Content.PARENT_HASH_FIELD, hash);
             }
 
             
@@ -292,7 +292,7 @@ public class WideColumnIndexer extends AbstractIndexer {
     }
 
     public DisposableIterator<Map<String, Object>> find(final String keySpace, final String columnFamily,
-            Map<String, Object> properties, final CachingManager cachingManager) throws StorageClientException {
+            Map<String, Object> properties, final DirectCacheAccess cachingManager) throws StorageClientException {
         String[] keys = null;
         if ( properties != null  && properties.containsKey(StorageConstants.CUSTOM_STATEMENT_SET)) {
             String customStatement = (String) properties.get(StorageConstants.CUSTOM_STATEMENT_SET);
@@ -321,6 +321,7 @@ public class WideColumnIndexer extends AbstractIndexer {
         // collect information on paging
         long page = 0;
         long items = 25;
+        String sortProp = null;
         if (properties != null) {
           if (properties.containsKey(StorageConstants.PAGE)) {
             page = Long.valueOf(String.valueOf(properties.get(StorageConstants.PAGE)));
@@ -328,12 +329,12 @@ public class WideColumnIndexer extends AbstractIndexer {
           if (properties.containsKey(StorageConstants.ITEMS)) {
             items = Long.valueOf(String.valueOf(properties.get(StorageConstants.ITEMS)));
           }
+          sortProp = (String) properties.get(StorageConstants.SORT);
         }
         long offset = page * items;
 
         // collect information on sorting
         List<String> sortingList = Lists.newArrayList();
-        String sortProp = (String) properties.get(StorageConstants.SORT);
         if (sortProp != null) {
           String[] sorts = StringUtils.split(sortProp);
           if (sorts.length == 1) {

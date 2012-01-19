@@ -47,8 +47,8 @@ import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
-import org.sakaiproject.nakamura.lite.CachingManager;
-import org.sakaiproject.nakamura.lite.storage.StorageClient;
+import org.sakaiproject.nakamura.lite.CachingManagerImpl;
+import org.sakaiproject.nakamura.lite.storage.spi.StorageClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,7 +57,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
-public class AccessControlManagerImpl extends CachingManager implements AccessControlManager {
+import edu.umd.cs.findbugs.annotations.SuppressWarnings;
+
+public class AccessControlManagerImpl extends CachingManagerImpl implements AccessControlManager {
 
     private static final String _SECRET_KEY = "_secretKey";
     private static final String _PATH = "_aclPath";
@@ -192,6 +194,7 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
         // the caller must save the target.
     }
 
+    @SuppressWarnings(value="RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE", justification="Not correct, the line in question doesnt check for a null, so the check is not redundant")
     public void setAcl(String objectType, String objectPath, AclModification[] aclModifications)
             throws StorageClientException, AccessDeniedException {
         checkOpen();
@@ -264,6 +267,16 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
         LOGGER.debug("Updating ACL {} {} ", key, modifications);
         putCached(keySpace, aclColumnFamily, key, modifications, (currentAcl == null || currentAcl.size() == 0));
         storeListener.onUpdate(objectType, objectPath,  getCurrentUserId(), "type:acl", false, null, "op:acl");
+        // clear the compiled cache for this session.
+        List<String> keys = Lists.newArrayList();
+        for ( Entry<String,int[]> e : cache.entrySet()) {
+            if (e.getKey().startsWith(key)) {
+                keys.add(e.getKey());
+            }
+        }
+        for ( String k : keys ) {
+            cache.remove(k);
+        }
     }
     
     private boolean containsKey(String name, Map<String, Object> map1,
