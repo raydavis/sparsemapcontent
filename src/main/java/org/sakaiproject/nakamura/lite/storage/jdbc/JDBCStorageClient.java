@@ -533,7 +533,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             close(deleteBlockRow, "deleteBlockRow");
         }
     }
-
+    
     public void close() {
         passivate();
         jdbcStorageClientConnection.releaseClient(this);
@@ -543,12 +543,10 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         if (destroyed == null) {
             try {
                 destroyed = new Exception("Connection Closed Traceback");
-                shutdownConnection();
-                jdbcStorageClientConnection.releaseClient(this);
             } catch (Throwable t) {
-                LOGGER.error("Failed to close connection ", t);
+                LOGGER.error("Failed to dispose connection ", t);
             }
-        }
+        }        
     }
 
     private void checkActive() throws StorageClientException {
@@ -634,15 +632,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         return pst;
     }
 
-    public void shutdownConnection() {
-        if (active) {
-            disposeDisposables();
-            active = false;
-        }
-    }
 
     private void disposeDisposables() {
-        passivate = new Exception("Passivate Traceback");
         List<Disposable> dList = null;
         // this shoud not be necessary, but just in case.
         synchronized (desponseLock ) {
@@ -671,7 +662,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     }
 
     public boolean validate() throws StorageClientException {
-        checkActive();
+        checkActive(false);
         Statement statement = null;
         try {
             // just get a connection, that will be enough to validate.
@@ -790,10 +781,15 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
 
     public void activate() {
         passivate = null;
+        active = true;
     }
 
     public void passivate() {
-        disposeDisposables();
+        if (active) {
+            passivate = new Exception("Passivate Traceback");
+            disposeDisposables();
+            active = false;
+        }
     }
 
     public Map<String, Object> streamBodyIn(String keySpace, String columnFamily, String contentId,
