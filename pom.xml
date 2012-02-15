@@ -4,8 +4,8 @@
 	<parent>
 		<groupId>org.sakaiproject.nakamura</groupId>
 		<artifactId>core-base</artifactId>
-		<version>3</version>
-		<!-- force download <relativePath>parent/pom.xml</relativePath> -->
+		<version>4-SNAPSHOT</version>
+		<relativePath>parent/pom.xml</relativePath>
 	</parent>
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.core</artifactId>
@@ -45,7 +45,6 @@
 			<plugin>
 				<groupId>org.apache.felix</groupId>
 				<artifactId>maven-bundle-plugin</artifactId>
-				<version>2.3.6</version>
 				<extensions>true</extensions>
 				<configuration>
 					<instructions>
@@ -56,7 +55,15 @@
 			            </Export-Package>
 						<Service-Component />
 						<DynamicImport-Package>*</DynamicImport-Package>
+                                                <!-- These imports are here to allow consumers to use later versions
+                                                     of commons-io and Guava. SparseMap is tested with the version
+                                                     numbers stated. It may run with later versions, but you will 
+                                                     have to do your own testing. In general the use of both these 
+                                                     libraries is not sopisticated, and any version will probably do.
+                                                     ie, at your own risk  -->
 						<Import-Package>
+						  org.apache.commons.io; version="1.4",
+						  com.google.common.collect; version="9.0.0",
 							*
 						</Import-Package>
 						<Private-Package>org.sakaiproject.nakamura.lite.*</Private-Package>

@@ -5,8 +5,8 @@
   <parent>
     <groupId>org.sakaiproject.nakamura</groupId>
     <artifactId>core-base</artifactId>
-    <version>3</version>
-    <!-- <relativePath>../../parent/pom.xml</relativePath> -->
+    <version>4-SNAPSHOT</version>
+    <relativePath>../../parent/pom.xml</relativePath>
   </parent>
   <artifactId>uk.co.tfd.sm.memory</artifactId>
   <packaging>bundle</packaging>
@@ -31,7 +31,12 @@
               WARNING, these had to be excluded from the imports to get the bundle to activate there
               may be classcast exceptions
             -->
-            <Import-Package>!sun.misc,!org.jgroups.*,!org.hibernate.cache,*
+            <Import-Package>
+               !sun.misc,
+               !org.jgroups.*,
+               !org.hibernate.cache,
+                com.google.common.collect; version="9.0.0",
+               *
             </Import-Package>
             <Private-Package>uk.co.tfd.sm.memory.*</Private-Package>
             <DynamicImport-Package>sun.misc.*</DynamicImport-Package>
@@ -66,7 +71,7 @@
     <dependency>
       <groupId>org.sakaiproject.nakamura</groupId>
       <artifactId>org.sakaiproject.nakamura.core</artifactId>
-      <version>1.2</version>
+      <version>1.5-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
