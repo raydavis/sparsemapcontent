@@ -9,7 +9,7 @@
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.postgres-driver</artifactId>
 	<packaging>bundle</packaging>
-	<version>9.0-801-1.5-SNAPSHOT</version>
+	<version>9.0-801-1.5-20120222</version>
 	<name>Sparse Map :: PostgresSQL SPI Implementation</name>
 	<description>Storage SPI implementation using Postgres </description>
 	<scm>
@@ -55,13 +55,13 @@
 		<dependency>
 			<groupId>org.sakaiproject.nakamura</groupId>
 			<artifactId>org.sakaiproject.nakamura.core</artifactId>
-			<version>1.5-SNAPSHOT</version>
+			<version>1.5-20120222</version>
 		</dependency>
 		<dependency>
 			<groupId>org.sakaiproject.nakamura</groupId>
 			<artifactId>org.sakaiproject.nakamura.core</artifactId>
 			<classifier>tests</classifier>
-			<version>1.5-SNAPSHOT</version>
+			<version>1.5-20120222</version>
 			<scope>test</scope>
 		</dependency>
         <dependency>

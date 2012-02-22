@@ -9,7 +9,7 @@
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.mysql-driver</artifactId>
 	<packaging>bundle</packaging>
-	<version>5.1.13-1.5-SNAPSHOT</version>
+	<version>5.1.13-1.5-20120222</version>
 	<name>Sparse Map :: MySQL SPI Implementation</name>
 	<description>Storage SPI implementation using MySQL </description>
 	<scm>
@@ -55,13 +55,13 @@
 		<dependency>
 			<groupId>org.sakaiproject.nakamura</groupId>
 			<artifactId>org.sakaiproject.nakamura.core</artifactId>
-			<version>1.5-SNAPSHOT</version>
+			<version>1.5-20120222</version>
 		</dependency>
 		<dependency>
 			<groupId>org.sakaiproject.nakamura</groupId>
 			<artifactId>org.sakaiproject.nakamura.core</artifactId>
 			<classifier>tests</classifier>
-			<version>1.5-SNAPSHOT</version>
+			<version>1.5-20120222</version>
 			<scope>test</scope>
 		</dependency>
         <dependency>

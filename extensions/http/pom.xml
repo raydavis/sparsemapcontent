@@ -86,7 +86,7 @@
     <dependency>
        <groupId>org.sakaiproject.nakamura</groupId>
        <artifactId>org.sakaiproject.nakamura.core</artifactId>
-       <version>1.2</version>
+       <version>1.5-20120222</version>
        <scope>compile</scope>
     </dependency>
     <!--  needed for Template Service -->
