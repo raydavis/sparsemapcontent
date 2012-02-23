@@ -10,7 +10,7 @@
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.hbase-driver</artifactId>
 	<packaging>bundle</packaging>
-	<version>0.90.3-0.1-20120222</version>
+	<version>0.90.3-0.1-SNAPSHOT</version>
 	<name>Sparse Map :: HBase SPI Implementation</name>
 	<description>Storage SPI implementation using HBase </description>
 	<scm>
@@ -63,13 +63,13 @@
 		<dependency>
 			<groupId>org.sakaiproject.nakamura</groupId>
 			<artifactId>org.sakaiproject.nakamura.core</artifactId>
-			<version>1.5-20120222</version>
+			<version>1.5-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.sakaiproject.nakamura</groupId>
 			<artifactId>org.sakaiproject.nakamura.core</artifactId>
 			<classifier>tests</classifier>
-			<version>1.5-20120222</version>
+			<version>1.5-SNAPSHOT</version>
 			<scope>test</scope>
 		</dependency>
         <dependency>
