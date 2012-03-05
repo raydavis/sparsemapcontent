@@ -83,6 +83,8 @@ public interface ContentManager {
      *             at that location and possibly at parent locations.
      */
     String saveVersion(String path) throws StorageClientException, AccessDeniedException;
+  
+    String saveVersion(String path, Map<String, Object> versionMetadata) throws StorageClientException, AccessDeniedException;
 
     /**
      * Update or create the content object, and intermediate path if necessary,
