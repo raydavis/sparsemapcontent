@@ -317,7 +317,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
     public void triggerRefresh(String path) throws StorageClientException, AccessDeniedException {
         Content c = get(path);
         if ( c != null ) {
-            eventListener.onUpdate(Security.ZONE_CONTENT, path,  accessControlManager.getCurrentUserId(), getResourceType(c), false, c.getOriginalProperties(), "op:update");
+            eventListener.onUpdate(Security.ZONE_CONTENT, path,  accessControlManager.getCurrentUserId(), getResourceType(c), false, null, "op:update");
         }
     }
     
@@ -357,7 +357,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                     Map<String, Object> c = all.next().getProperties();
                     if ( c.containsKey(PATH_FIELD) && !c.containsKey(STRUCTURE_UUID_FIELD)) {
                         
-                        eventListener.onUpdate(Security.ZONE_CONTENT, (String)c.get(PATH_FIELD), User.ADMIN_USER, getResourceType(c), false, ImmutableMap.copyOf(c), "op:update");                    
+                        eventListener.onUpdate(Security.ZONE_CONTENT, (String)c.get(PATH_FIELD), User.ADMIN_USER, getResourceType(c), false, null, "op:update");
                     }
                 }
             } finally {
@@ -725,8 +725,12 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 idStore, PATH_FIELD, from, LINKED_PATH_FIELD, to), true);
 
     }
-
+  
     public String saveVersion(String path) throws StorageClientException, AccessDeniedException {
+        return saveVersion(path, null);
+    }
+
+    public String saveVersion(String path, Map<String, Object> versionMetadata) throws StorageClientException, AccessDeniedException {
         checkOpen();
         accessControlManager.check(Security.ZONE_CONTENT, path, Permissions.CAN_WRITE);
         Map<String, Object> structure = getCached(keySpace, contentColumnFamily, path);
@@ -764,6 +768,12 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         saveVersion.put(READONLY_FIELD, TRUE);
         Object versionNumber = System.currentTimeMillis();
         saveVersion.put(VERSION_NUMBER_FIELD, versionNumber);
+      
+        if (versionMetadata != null) {
+          for (String key : versionMetadata.keySet()) {
+            saveVersion.put("metadata:" + key, versionMetadata.get(key));
+          }
+        }
 
         putCached(keySpace, contentColumnFamily, saveVersionId, saveVersion, false);
         putCached(keySpace, contentColumnFamily, newVersionId, newVersion, true);
