@@ -579,6 +579,13 @@ public abstract class AbstractContentManagerTest {
         Content badVersionContent = contentManager.getVersion("/testVersionContent", "BadVersion");
         Assert.assertNull(badVersionContent);
 
+        // get version with metadata
+        Map<String, Object> metadata = ImmutableMap.<String, Object>of("testmd1", "yaymd1", "testmd2", 100);
+        String metaVersionName = contentManager.saveVersion("/testVersionContent", metadata);
+        Content metaVersion = contentManager.getVersion("/testVersionContent", metaVersionName);
+        Assert.assertNotNull(metaVersion);
+        Assert.assertEquals("yaymd1", metaVersion.getProperty("metadata:testmd1"));
+        Assert.assertEquals(100, metaVersion.getProperty("metadata:testmd2"));
     }
 
     @Test
