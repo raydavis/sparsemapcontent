@@ -818,8 +818,8 @@ public class ContentManagerImpl extends CachingManagerImpl implements ContentMan
         saveVersion.put(VERSION_NUMBER_FIELD, versionNumber);
       
         if (versionMetadata != null) {
-          for (String key : versionMetadata.keySet()) {
-            saveVersion.put("metadata:" + key, versionMetadata.get(key));
+          for (Entry<String, Object> entry : versionMetadata.entrySet()) {
+            saveVersion.put("metadata:" + entry.getKey(), entry.getValue());
           }
         }
 
