@@ -767,8 +767,12 @@ public class ContentManagerImpl extends CachingManagerImpl implements ContentMan
                 idStore, PATH_FIELD, from, LINKED_PATH_FIELD, to, DELETED_FIELD, new RemoveProperty()), true);
 
     }
-
+  
     public String saveVersion(String path) throws StorageClientException, AccessDeniedException {
+        return saveVersion(path, null);
+    }
+
+    public String saveVersion(String path, Map<String, Object> versionMetadata) throws StorageClientException, AccessDeniedException {
         checkOpen();
         accessControlManager.check(Security.ZONE_CONTENT, path, Permissions.CAN_WRITE);
         Map<String, Object> structure = getCached(keySpace, contentColumnFamily, path);
@@ -812,6 +816,12 @@ public class ContentManagerImpl extends CachingManagerImpl implements ContentMan
         saveVersion.put(READONLY_FIELD, TRUE);
         Object versionNumber = System.currentTimeMillis();
         saveVersion.put(VERSION_NUMBER_FIELD, versionNumber);
+      
+        if (versionMetadata != null) {
+          for (Entry<String, Object> entry : versionMetadata.entrySet()) {
+            saveVersion.put("metadata:" + entry.getKey(), entry.getValue());
+          }
+        }
 
         putCached(keySpace, contentColumnFamily, saveVersionId, saveVersion, false);
         putCached(keySpace, contentColumnFamily, newVersionId, newVersion, true);
