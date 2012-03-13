@@ -87,21 +87,40 @@ public interface ContentManager {
     String saveVersion(String path, Map<String, Object> versionMetadata) throws StorageClientException, AccessDeniedException;
 
     /**
-     * Update or create the content object, and intermediate path if necessary,
-     * stored at the location indicated by the path of the content object
-     * supplied.
-     * 
-     * @param content
-     *            the content object to update.
-     * @throws StorageClientException
-     *             if there was a problem with the operation.
-     * @throws AccessDeniedException
-     *             if the user is unable to write the object at the path. This
-     *             is not an indication that the objected at the path exists,
-     *             just that the user can't write anything at that location and
-     *             possibly at parent locations.
-     */
-    void update(Content content) throws AccessDeniedException, StorageClientException;
+   * Update or create the content object, and intermediate path if necessary,
+   * stored at the location indicated by the path of the content object
+   * supplied.
+   *
+   * @param content
+   *            the content object to update.
+   * @throws StorageClientException
+   *             if there was a problem with the operation.
+   * @throws AccessDeniedException
+   *             if the user is unable to write the object at the path. This
+   *             is not an indication that the objected at the path exists,
+   *             just that the user can't write anything at that location and
+   *             possibly at parent locations.
+   */
+  void update(Content content) throws AccessDeniedException, StorageClientException;
+
+  /**
+   * Update or create the content object, and intermediate path if necessary,
+   * stored at the location indicated by the path of the content object
+   * supplied.
+   *
+   * @param content
+   *            the content object to update.
+   * @param withTouch
+   *            if false, the modification timestamp will not be updated. Only admin can use this option.
+   * @throws StorageClientException
+   *             if there was a problem with the operation.
+   * @throws AccessDeniedException
+   *             if the user is unable to write the object at the path. This
+   *             is not an indication that the objected at the path exists,
+   *             just that the user can't write anything at that location and
+   *             possibly at parent locations.
+   */
+  void update(Content content, boolean withTouch) throws AccessDeniedException, StorageClientException;
 
     /**
      * Delete the content object at the path indicated.
