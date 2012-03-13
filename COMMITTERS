@@ -1,23 +1,33 @@
-The following people have commit access to the Sparse Content System sources.
-Note that this is not a full list of the authors, however --
-for that, you'd need to look over the log messages to see all the
-patch contributors.
-
+The following people have commit access to the Sakai Project fork 
+of the Sparse Map Content System sources originally authored
+by Ian Boston (ian@tfd.co.uk).  Note that this is not a 
+full list of the authors; for that, you will need to look 
+over the log messages to see all the patch contributors.
 
 Committers:
 
-            ian@tfd.co.uk                    Ian Boston
+            carl@hallwaytech.com             Carl Hall
+            stuart.freeman@et.gatech.edu     D. Stuart Freeman
+            lance@rsmart.com                 Lance Speelmon
+            zach@aeroplanesoftware.com       Zach Thomas
+            chris@media.berkeley.edu         Chris Tweney
+            arwhyte@umich.edu                Anthony Whyte
+            
+Contributors:
+   
+For a complete list of contributions please see the commit log.
+Contributors include:
 
-
-Contributions:
-   For a complete list of contributions please see the commit log.
-   Contributions include patches from:
+            ian@tfd.co.uk                    Ian Boston (original author)
             ray@media.berkeley.edu           Ray Davis
             cdunstall@csu.edu.au             Chris Dunstall
-            carl@hallwaytech.com             Carl Hall
-            lance@speelmon.com               Lance Speelmon
-            zach@aeroplanesoftware.com       Zach Thomas
+            erik.froese@gmail.com            Erik Froese
+            duffy@rsmart.com                 Duffy Gillman
+            johnk@media.berkeley.edu         John King
+            kotwal.aadish@gmail.com          Aadish Kotwal
+            droma@csu.edu.au                 Dave Roma
+            mark@dishevelled.net             Mark Triggs
             mawalsh@csu.edu.au               Mark Walsh
-   and others.
+            roberttdev@gmail.com             Rob Williams
 
 
