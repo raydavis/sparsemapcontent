@@ -18,9 +18,9 @@
     <maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
   </properties>
   <scm>
-    <connection>scm:git:git://github.com/ieb/sparsemapcontent.git</connection>
-    <developerConnection>scm:git:git@github.com:ieb/sparsemapcontent.git</developerConnection>
-    <url>http://github.com/ieb/sparsemapcontent/</url>
+    <connection>scm:git:git://github.com/sakaiproject/sparsemapcontent.git</connection>
+    <developerConnection>scm:git:git@github.com:sakaiproject/sparsemapcontent.git</developerConnection>
+    <url>http://github.com/sakaiproject/sparsemapcontent/</url>
   </scm>
   <prerequisites>
     <maven>3.0.3</maven>
