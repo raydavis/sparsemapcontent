@@ -430,6 +430,8 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             toSave.put(LASTMODIFIED_FIELD, System.currentTimeMillis());
             toSave.put(LASTMODIFIED_BY_FIELD,
                     accessControlManager.getCurrentUserId());
+          } else {
+            toSave.put(UUID_FIELD, originalProperties.get(UUID_FIELD));
           }
           id = (String)toSave.get(UUID_FIELD);
           LOGGER.debug("Updating Content with {} {} ", id, toSave);
