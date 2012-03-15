@@ -42,6 +42,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.PrincipalTokenResolver;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.PrincipalValidatorResolver;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
@@ -275,7 +276,83 @@ public class AccessControlManagerImpl extends CachingManager implements AccessCo
             cache.remove(k);
         }
     }
-    
+
+  /**
+   * {@inheritDoc}
+   *
+   * @see org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager#moveAcl(java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+   */
+  public boolean moveAcl(String objectType, String from, String to)
+      throws AccessDeniedException, StorageClientException {
+    return moveAcl(objectType, from, to, false);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * @param objectType
+   * @param from
+   * @param to
+   * @param force
+   * @return
+   * @throws AccessDeniedException
+   * @throws StorageClientException
+   * @see org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager#moveAcl(java.lang.String, java.lang.String, java.lang.String, java.lang.String, boolean)
+   */
+  public boolean moveAcl(String objectType, String from, String to, boolean force)
+    throws AccessDeniedException, StorageClientException {
+    boolean moved = false;
+
+    // check that we have the same permissions as used in ContentManager.move(..)
+    check(Security.ZONE_CONTENT, from, Permissions.CAN_ANYTHING);
+    check(Security.ZONE_CONTENT, to, Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
+
+    // get the ACL to move and make the map mutable
+    Map<String, Object> fromAcl = Maps.newHashMap(getAcl(objectType, from));
+    if (fromAcl != null) {
+
+      // remove the read-only properties to be re-added when setting the new acl
+      for (String readOnly : READ_ONLY_PROPERTIES) {
+        fromAcl.remove(readOnly);
+      }
+
+      // check for a destination if necessary
+      if (!force && !getAcl(objectType, to).isEmpty()) {
+        throw new StorageClientException("The destination ACL {" + to
+            + "} exists, move operation failed");
+      }
+
+      // parse the ACL and create modifications for the `to` location
+      List<AclModification> modifications = Lists.newArrayList();
+      for (Entry<String, Object> fromAce : fromAcl.entrySet()) {
+        String aceKey = fromAce.getKey();
+        Object aceValue = fromAce.getValue();
+        if (aceValue != null) {
+          try {
+            int bitmap = Integer.parseInt(String.valueOf(aceValue));
+            modifications.add(new AclModification(aceKey, bitmap, Operation.OP_REPLACE));
+          } catch (NumberFormatException e) {
+            LOGGER.info("Skipping corrupt ACE value {} at {}->{}", new Object[] {
+                aceValue, from, to });
+          }
+        }
+      }
+
+      // set the ACL on the `to` path
+      AclModification[] mods = modifications.toArray(new AclModification[modifications.size()]);
+      setAcl(objectType, to, mods);
+
+      // remove the old ACLs on the `from` path
+      for (int i = 0; i < mods.length; i++) {
+        mods[i] = new AclModification(mods[i].getAceKey(), 0, Operation.OP_DEL);
+      }
+      setAcl(objectType, from, mods);
+
+      moved = true;
+    }
+    return moved;
+  }
+
     private boolean containsKey(String name, Map<String, Object> map1,
             Map<String, Object> map2) {
         return map1.containsKey(name) || map2.containsKey(name);

@@ -264,6 +264,20 @@ public interface ContentManager {
     void move(String from, String to) throws AccessDeniedException, StorageClientException;
 
   /**
+   * Move a content item from to.
+   *
+   * @param from
+   *          the source, must exist
+   * @param to
+   *          the destination must not exist.
+   * @param force
+   *          Whether to forcefully move to the destination (i.e. overwrite)
+   * @throws StorageClientException
+   * @throws AccessDeniedException
+   */
+  void move(String from, String to, boolean force) throws AccessDeniedException, StorageClientException;
+
+  /**
    * Move a content item, and all child items, from to. Acts recursively.
    * 
    * @param from
@@ -276,8 +290,24 @@ public interface ContentManager {
    * @throws AccessDeniedException
    */
   List<ActionRecord> moveWithChildren(String from, String to)
-      throws AccessDeniedException,
-      StorageClientException;
+      throws AccessDeniedException, StorageClientException;
+
+  /**
+   * Move a content item, and all child items, from to. Acts recursively.
+   *
+   * @param from
+   *          the source, must exist
+   * @param to
+   *          the destination must not exist.
+   * @param force
+   *          Whether to forcefully move to the destination (i.e. overwrite)
+   * @return a List of the moves performed (from and to paths). Listed bottom-up,
+   *         path-wise.
+   * @throws StorageClientException
+   * @throws AccessDeniedException
+   */
+  List<ActionRecord> moveWithChildren(String from, String to, boolean force)
+      throws AccessDeniedException, StorageClientException;
 
   /**
    * Create a Link. Links place a pointer to real content located at the to path, in the

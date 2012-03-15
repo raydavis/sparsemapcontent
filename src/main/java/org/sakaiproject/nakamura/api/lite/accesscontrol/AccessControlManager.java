@@ -194,5 +194,41 @@ public interface AccessControlManager {
      */
     PropertyAcl getPropertyAcl(String objectType, String objectPath) throws AccessDeniedException, StorageClientException;
 
+  /**
+   * Move ACLs from source to destination. This mirrors the move functionality found in
+   * {@link ContentManager}.
+   *
+   * @param objectType
+   *          The type of the source object where the ACLs are found.
+   * @param from
+   *          The source path where the ACLs are applied.
+   * @param to
+   *          The source path where the ACLs are to be applied.
+   * @return
+   * @throws AccessDeniedException
+   * @throws StorageClientException
+   * @see Security#ZONE_ADMIN, Security#ZONE_AUTHORIZABLES, Security#ZONE_CONTENT
+   */
+  boolean moveAcl(String objectType, String from, String to)
+      throws AccessDeniedException, StorageClientException;
 
+  /**
+   * Move ACLs from source to destination. This mirrors the move functionality found in
+   * {@link ContentManager}.
+   *
+   * @param objectType
+   *          The type of the source object where the ACLs are found.
+   * @param from
+   *          The source path where the ACLs are applied.
+   * @param to
+   *          The source path where the ACLs are to be applied.
+   * @param force
+   *          Whether to forcefully move to the destination (i.e. overwrite)
+   * @return
+   * @throws AccessDeniedException
+   * @throws StorageClientException
+   * @see Security#ZONE_ADMIN, Security#ZONE_AUTHORIZABLES, Security#ZONE_CONTENT
+   */
+  boolean moveAcl(String objectType, String from, String to, boolean force)
+      throws AccessDeniedException, StorageClientException;
 }

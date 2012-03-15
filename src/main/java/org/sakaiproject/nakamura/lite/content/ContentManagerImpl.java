@@ -619,6 +619,10 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     // TODO: Unit test
     public void move(String from, String to) throws AccessDeniedException, StorageClientException {
+      move(from, to, false);
+    }
+
+    public void move(String from, String to, boolean force) throws AccessDeniedException, StorageClientException {
         // to move, get the structure object out and modify, recreating parent
         // objects as necessary.
         checkOpen();
@@ -638,9 +642,13 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (toStructure != null && toStructure.size() > 0) {
             String contentId = (String)toStructure.get(STRUCTURE_UUID_FIELD);
             Map<String, Object> content = getCached(keySpace, contentColumnFamily, contentId);
-            if (content != null && content.size() > 0 && !TRUE.equals(content.get(DELETED_FIELD))) {
+            if (content != null && content.size() > 0) {
+              if (force) {
+                delete(to);
+              } else if (!TRUE.equals(content.get(DELETED_FIELD))) {
                 throw new StorageClientException("The destination content to move to " + to
                     + "  exists, move operation failed");
+              }
             }
         }
         String idStore = (String) fromStructure.get(STRUCTURE_UUID_FIELD);
@@ -667,6 +675,9 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         fromStructure.put(PATH_FIELD, to);
         putCached(keySpace, contentColumnFamily, to, fromStructure, true);
 
+        // move the ACLs
+        accessControlManager.moveAcl(Security.ZONE_CONTENT, from, to, force);
+
         // remove the old from.
         removeCached(keySpace, contentColumnFamily, from);
         // move does not add resourceTypes to events.
@@ -676,11 +687,15 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
     }
 
   public List<ActionRecord> moveWithChildren(String from, String to)
-      throws AccessDeniedException,
-      StorageClientException {
+      throws AccessDeniedException, StorageClientException {
+    return moveWithChildren(from, to, false);
+  }
+
+  public List<ActionRecord> moveWithChildren(String from, String to, boolean force)
+      throws AccessDeniedException, StorageClientException {
     List<ActionRecord> record = Lists.newArrayList();
 
-    move(from, to);
+    move(from, to, force);
 
     PreemptiveIterator<String> iter = (PreemptiveIterator<String>) listChildPaths(from);
     while (iter.hasNext()) {
@@ -689,7 +704,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
       // Since this is a direct child of the previous from, only the last token needs to
       // be appended to "to"
       record.addAll(moveWithChildren(childPath,
-          to.concat(childPath.substring(childPath.lastIndexOf("/")))));
+          to.concat(childPath.substring(childPath.lastIndexOf("/"))), force));
     }
 
     record.add(new ActionRecord(from, to));
