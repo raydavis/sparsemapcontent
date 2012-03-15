@@ -730,7 +730,7 @@ public abstract class AbstractContentManagerTest {
     contentManager.update(new Content("/testMoveWithChildren/test/ing", ImmutableMap.of("prop1",
         (Object) "value4")));
     StorageClientUtils.deleteTree(contentManager, "/testMoveWithChildren/movewc/test");
-    contentManager.moveWithChildren("/testMoveWithChildren/test", "/testMoveWithChildren/movewc/test");
+    contentManager.move("/testMoveWithChildren/test", "/testMoveWithChildren/movewc/test");
 
     Content content = contentManager.get("/testMoveWithChildren");
     Assert.assertEquals("/testMoveWithChildren", content.getPath());

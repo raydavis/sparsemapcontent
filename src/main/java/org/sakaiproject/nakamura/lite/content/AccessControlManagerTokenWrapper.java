@@ -125,24 +125,4 @@ public class AccessControlManagerTokenWrapper implements AccessControlManager {
         }
     }
 
-    public boolean moveAcl(String objectType, String from, String to)
-        throws AccessDeniedException, StorageClientException {
-      try {
-        delegate.setRequestPrincipalResolver(principalTokenResovler);
-        return delegate.moveAcl(objectType, from, to);
-      } finally {
-        delegate.clearRequestPrincipalResolver();
-      }
-    }
-
-    public boolean moveAcl(String objectType, String from, String to, boolean force)
-        throws AccessDeniedException, StorageClientException {
-      try {
-        delegate.setRequestPrincipalResolver(principalTokenResovler);
-        return delegate.moveAcl(objectType, from, to, force);
-      } finally {
-        delegate.clearRequestPrincipalResolver();
-      }
-    }
-
 }
