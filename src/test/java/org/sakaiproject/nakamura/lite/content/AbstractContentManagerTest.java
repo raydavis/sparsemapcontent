@@ -785,7 +785,7 @@ public abstract class AbstractContentManagerTest {
   }
 
   @Test
-  public void testMoveAndAcls() throws Exception {
+  public void testMoveWithAcls() throws Exception {
     Repository repository = (Repository) new BaseMemoryRepository().getRepository();
     Session adminSession = repository.loginAdministrative();
     AuthorizableManager adminAuthorizableManager = adminSession.getAuthorizableManager();
@@ -812,6 +812,79 @@ public abstract class AbstractContentManagerTest {
 
     // verify that the ACL moved with the content
     Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, "/testMove2", Permissions.CAN_WRITE));
+  }
+
+  @Test
+  public void testMoveWithVersions() throws Exception {
+    Repository repository = (Repository) new BaseMemoryRepository().getRepository();
+    Session adminSession = repository.loginAdministrative();
+    ContentManager adminContentManager = adminSession.getContentManager();
+
+    String from = "testMove1";
+    String to = "testMove2";
+
+    // add some initial content
+    adminContentManager.update(new Content(from, ImmutableMap.<String, Object>of("prop1", "value1")));
+
+    // save a version of the content and verify the history
+    adminContentManager.saveVersion(from);
+    List<String> history = adminContentManager.getVersionHistory(from);
+    Assert.assertEquals(1, history.size());
+
+    // move the content
+    adminContentManager.move(from, to);
+
+    // check the base content is there
+    Assert.assertTrue(adminContentManager.exists(to));
+
+    // check the history
+    history = adminContentManager.getVersionHistory(to);
+    Assert.assertEquals(1, history.size());
+  }
+
+  @Test
+  public void testMoveWithVersionsAtDepth() throws Exception {
+    Repository repository = (Repository) new BaseMemoryRepository().getRepository();
+    Session adminSession = repository.loginAdministrative();
+    ContentManager adminContentManager = adminSession.getContentManager();
+
+    String from = "testMove1";
+    String tmp = "tmp";
+    String to = from + "/" + tmp;
+
+    // add some initial content
+    adminContentManager.update(new Content(from, ImmutableMap.<String, Object>of("prop1", "value1")));
+    adminContentManager.update(new Content(tmp, ImmutableMap.<String, Object>of("prop1", "value1")));
+
+    // save a version of the content and verify the history
+    adminContentManager.saveVersion(from);
+    List<String> history = adminContentManager.getVersionHistory(from);
+    Assert.assertEquals(1, history.size());
+    
+    adminContentManager.saveVersion(tmp);
+    history = adminContentManager.getVersionHistory(tmp);
+    Assert.assertEquals(1, history.size());
+
+    // move the content
+    adminContentManager.move(tmp, to);
+
+    // check the base content is there
+    Assert.assertTrue(adminContentManager.exists(to));
+
+    // check that all history is still there
+    history = adminContentManager.getVersionHistory(from);
+    Assert.assertEquals(1, history.size());
+    history = adminContentManager.getVersionHistory(to);
+    Assert.assertEquals(1, history.size());
+
+    // verify that we can add more history at each node
+    adminContentManager.saveVersion(from);
+    history = adminContentManager.getVersionHistory(from);
+    Assert.assertEquals(2, history.size());
+
+    adminContentManager.saveVersion(to);
+    history = adminContentManager.getVersionHistory(to);
+    Assert.assertEquals(2, history.size());
   }
 
   @Test
