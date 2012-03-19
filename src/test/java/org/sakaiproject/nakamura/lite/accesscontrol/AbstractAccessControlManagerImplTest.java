@@ -632,4 +632,62 @@ public abstract class AbstractAccessControlManagerImplTest {
                 "wrapper", Permissions.CAN_READ));
     }
 
+    @Test
+    public void testMoveAcl() throws Exception {
+      Repository repository = (Repository) new BaseMemoryRepository().getRepository();
+      Session adminSession = repository.loginAdministrative();
+      AuthorizableManager adminAuthorizableManager = adminSession.getAuthorizableManager();
+      ContentManager adminContentManager = adminSession.getContentManager();
+      AccessControlManager adminAccessControlManager = adminSession.getAccessControlManager();
+
+      // create a test user and some test permissions
+      String u1 = "user1-" + System.currentTimeMillis();
+      adminAuthorizableManager.createUser(u1, u1, u1, null);
+      Authorizable user1 = adminAuthorizableManager.findAuthorizable(u1);
+
+      String from = "a-test-node";
+      String to = "another-test-node";
+
+      // verify user1 can read but can't write to the node which should be the default
+      Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, from, Permissions.CAN_READ));
+      Assert.assertFalse(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, from, Permissions.CAN_WRITE));
+
+      // add write permission for user1 to the from node
+      AclModification user1canWrite = new AclModification(AclModification.grantKey(u1),
+          Permissions.CAN_WRITE.getPermission(), AclModification.Operation.OP_OR);
+
+      adminContentManager.update(new Content("a-test-node", null));
+      adminAccessControlManager.setAcl(Security.ZONE_CONTENT, "a-test-node",
+        new AclModification[] { user1canWrite });
+
+      // verify user1 can read and write to the node
+      Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, from, Permissions.CAN_READ));
+      Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, from, Permissions.CAN_WRITE));
+
+      // move the node
+      adminContentManager.move(from, to);
+
+      // verify that the permissions came over with the node
+      adminAccessControlManager.can(user1, Security.ZONE_CONTENT, to, Permissions.CAN_READ);
+      Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, to, Permissions.CAN_READ));
+      Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, to, Permissions.CAN_WRITE));
+
+      // verify the write permission is gone from the old node
+      Assert.assertTrue(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, from, Permissions.CAN_READ));
+      Assert.assertFalse(adminAccessControlManager.can(user1, Security.ZONE_CONTENT, from, Permissions.CAN_WRITE));
+
+      // try to move a node to itself. this should throw an exception
+      try {
+        adminContentManager.move(to, to);
+        Assert.fail("Should throw an exception when moving without force to a location that already exists.");
+      } catch (StorageClientException e) {
+        // expected
+      }
+
+      // this should work fine
+      adminAccessControlManager.setAcl(Security.ZONE_CONTENT, "a-test-node",
+          new AclModification[] { user1canWrite });
+      adminContentManager.move(to, from, true);
+    }
+
 }

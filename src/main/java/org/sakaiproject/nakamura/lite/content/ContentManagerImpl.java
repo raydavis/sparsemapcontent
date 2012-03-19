@@ -62,9 +62,11 @@ import org.sakaiproject.nakamura.api.lite.StorageConstants;
 import org.sakaiproject.nakamura.api.lite.StoreListener;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.PrincipalTokenResolver;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.ActionRecord;
 import org.sakaiproject.nakamura.api.lite.content.Content;
@@ -154,6 +156,13 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                                                                         UUID_FIELD,
                                                                         PATH_FIELD);
 
+    // These properties copied from AccessControlManager to keep from binding
+    // directly to the implementation class. They should stay in sync.
+    private static final String _SECRET_KEY = "_secretKey";
+    private static final String _PATH = "_aclPath";
+    private static final String _OBJECT_TYPE = "_aclType";
+    private static final String _KEY = "_aclKey";
+    private static final Set<String> ACL_READ_ONLY_PROPERTIES = ImmutableSet.of(_SECRET_KEY, _PATH, _OBJECT_TYPE, _KEY);
 
     /**
      * Storage Client
@@ -617,8 +626,32 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     }
 
-    // TODO: Unit test
-    public void move(String from, String to) throws AccessDeniedException, StorageClientException {
+    public List<ActionRecord> move(String from, String to) throws AccessDeniedException,
+        StorageClientException {
+      return move(from, to, false);
+    }
+
+    public List<ActionRecord> move(String from, String to, boolean force)
+        throws AccessDeniedException, StorageClientException {
+      List<ActionRecord> record = Lists.newArrayList();
+
+      moveContent(from, to, force);
+
+      PreemptiveIterator<String> iter = (PreemptiveIterator<String>) listChildPaths(from);
+      while (iter.hasNext()) {
+        String childPath = iter.next();
+
+        // Since this is a direct child of the previous from, only the last token needs to
+        // be appended to "to"
+        record.addAll(move(childPath,
+            to.concat(childPath.substring(childPath.lastIndexOf("/"))), force));
+      }
+
+      record.add(new ActionRecord(from, to));
+      return record;
+    }
+    
+    private void moveContent(String from, String to, boolean force) throws AccessDeniedException, StorageClientException {
         // to move, get the structure object out and modify, recreating parent
         // objects as necessary.
         checkOpen();
@@ -638,9 +671,13 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (toStructure != null && toStructure.size() > 0) {
             String contentId = (String)toStructure.get(STRUCTURE_UUID_FIELD);
             Map<String, Object> content = getCached(keySpace, contentColumnFamily, contentId);
-            if (content != null && content.size() > 0 && !TRUE.equals(content.get(DELETED_FIELD))) {
+            if (content != null && content.size() > 0) {
+              if (force) {
+                delete(to);
+              } else if (!TRUE.equals(content.get(DELETED_FIELD))) {
                 throw new StorageClientException("The destination content to move to " + to
                     + "  exists, move operation failed");
+              }
             }
         }
         String idStore = (String) fromStructure.get(STRUCTURE_UUID_FIELD);
@@ -667,6 +704,9 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         fromStructure.put(PATH_FIELD, to);
         putCached(keySpace, contentColumnFamily, to, fromStructure, true);
 
+        // move the ACLs
+        moveAcl(from, to, force);
+
         // remove the old from.
         removeCached(keySpace, contentColumnFamily, from);
         // move does not add resourceTypes to events.
@@ -674,27 +714,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         eventListener.onUpdate(Security.ZONE_CONTENT, to, accessControlManager.getCurrentUserId(), null, true, null, "op:move");
 
     }
-
-  public List<ActionRecord> moveWithChildren(String from, String to)
-      throws AccessDeniedException,
-      StorageClientException {
-    List<ActionRecord> record = Lists.newArrayList();
-
-    move(from, to);
-
-    PreemptiveIterator<String> iter = (PreemptiveIterator<String>) listChildPaths(from);
-    while (iter.hasNext()) {
-      String childPath = iter.next();
-
-      // Since this is a direct child of the previous from, only the last token needs to
-      // be appended to "to"
-      record.addAll(moveWithChildren(childPath,
-          to.concat(childPath.substring(childPath.lastIndexOf("/")))));
-    }
-
-    record.add(new ActionRecord(from, to));
-    return record;
-  }
 
     // TODO: Unit test
     public void link(String from, String to) throws AccessDeniedException, StorageClientException {
@@ -998,4 +1017,73 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
     }
 
 
+    /**
+     * Move ACLs from source to destination. This mirrors the move functionality found in
+     * {@link ContentManager}.
+     *
+     * @param from
+     *          The source path where the ACLs are applied.
+     * @param to
+     *          The source path where the ACLs are to be applied.
+     * @param force
+     *          Whether to forcefully move to the destination (i.e. overwrite)
+     * @return
+     * @throws AccessDeniedException
+     * @throws StorageClientException
+     * @see Security#ZONE_ADMIN, Security#ZONE_AUTHORIZABLES, Security#ZONE_CONTENT
+     */
+    private boolean moveAcl(String from, String to, boolean force)
+      throws AccessDeniedException, StorageClientException {
+      String objectType = Security.ZONE_CONTENT;
+      boolean moved = false;
+
+      // check that we have the same permissions as used in ContentManager.move(..)
+      accessControlManager.check(Security.ZONE_CONTENT, from, Permissions.CAN_ANYTHING);
+      accessControlManager.check(Security.ZONE_CONTENT, to, Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
+
+      // get the ACL to move and make the map mutable
+      Map<String, Object> fromAcl = Maps.newHashMap(accessControlManager.getAcl(objectType, from));
+      if (fromAcl != null) {
+
+        // remove the read-only properties to be re-added when setting the new acl
+        for (String readOnly : ACL_READ_ONLY_PROPERTIES) {
+          fromAcl.remove(readOnly);
+        }
+
+        // check for a destination if necessary
+        if (!force && !accessControlManager.getAcl(objectType, to).isEmpty()) {
+          throw new StorageClientException("The destination ACL {" + to
+              + "} exists, move operation failed");
+        }
+
+        // parse the ACL and create modifications for the `to` location
+        List<AclModification> modifications = Lists.newArrayList();
+        for (Entry<String, Object> fromAce : fromAcl.entrySet()) {
+          String aceKey = fromAce.getKey();
+          Object aceValue = fromAce.getValue();
+          if (aceValue != null) {
+            try {
+              int bitmap = (Integer) aceValue;
+              modifications.add(new AclModification(aceKey, bitmap, Operation.OP_REPLACE));
+            } catch (NumberFormatException e) {
+              LOGGER.info("Skipping corrupt ACE value {} at {}->{}", new Object[] {
+                  aceValue, from, to });
+            }
+          }
+        }
+
+        // set the ACL on the `to` path
+        AclModification[] mods = modifications.toArray(new AclModification[modifications.size()]);
+        accessControlManager.setAcl(objectType, to, mods);
+
+        // remove the old ACLs on the `from` path
+        for (int i = 0; i < mods.length; i++) {
+          mods[i] = new AclModification(mods[i].getAceKey(), 0, Operation.OP_DEL);
+        }
+        accessControlManager.setAcl(objectType, from, mods);
+
+        moved = true;
+      }
+      return moved;
+    }
 }
