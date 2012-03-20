@@ -18,9 +18,9 @@
 		<maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
 	</properties>
 	<scm>
-		<connection>scm:git:git://github.com/ieb/sparsemapcontent.git</connection>
-		<developerConnection>scm:git:git@github.com:ieb/sparsemapcontent.git</developerConnection>
-		<url>http://github.com/ieb/sparsemapcontent/</url>
+		<connection>scm:git:git://github.com/sakaiproject/sparsemapcontent.git</connection>
+		<developerConnection>scm:git:git@github.com:sakaiproject/sparsemapcontent.git</developerConnection>
+		<url>http://github.com/sakaiproject/sparsemapcontent/</url>
 	</scm>
 	<build>
 		<plugins>
@@ -237,4 +237,23 @@
 			<!-- just needed for compiling, not runtime -->
 		</dependency>
 	</dependencies>
+
+	<!-- Sakai Maven2 repo has a copy of ye olde Cassandra thrift 0.6.5 jar -->
+	<repositories>
+	    <repository>
+		<id>sakai-maven2</id>
+		<name>Sakai Maven Repo</name>
+		<layout>default</layout>
+		<url>http://source.sakaiproject.org/maven2</url>
+		<releases>
+		    <enabled>true</enabled>
+		    <checksumPolicy>ignore</checksumPolicy>
+		</releases>
+		<snapshots>
+		    <enabled>false</enabled>
+		    <checksumPolicy>ignore</checksumPolicy>
+		</snapshots>
+	    </repository>
+	</repositories>
 </project>
+
