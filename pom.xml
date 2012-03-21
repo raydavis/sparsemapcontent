@@ -18,9 +18,9 @@
 		<maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
 	</properties>
 	<scm>
-		<connection>scm:git:git://github.com/ieb/sparsemapcontent.git</connection>
-		<developerConnection>scm:git:git@github.com:ieb/sparsemapcontent.git</developerConnection>
-		<url>http://github.com/ieb/sparsemapcontent/</url>
+		<connection>scm:git:git://github.com/sakaiproject/sparsemapcontent.git</connection>
+		<developerConnection>scm:git:git@github.com:sakaiproject/sparsemapcontent.git</developerConnection>
+		<url>http://github.com/sakaiproject/sparsemapcontent/</url>
 	</scm>
 	<build>
 		<plugins>
@@ -49,18 +49,18 @@
 						<Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
 						<Export-Package>
 							org.sakaiproject.nakamura.api.lite.*
-			            </Export-Package>
+						</Export-Package>
 						<Service-Component />
 						<DynamicImport-Package>*</DynamicImport-Package>
-                                                <!-- These imports are here to allow consumers to use later versions
-                                                     of commons-io and Guava. SparseMap is tested with the version
-                                                     numbers stated. It may run with later versions, but you will 
-                                                     have to do your own testing. In general the use of both these 
-                                                     libraries is not sopisticated, and any version will probably do.
-                                                     ie, at your own risk  -->
+						<!-- These imports are here to allow consumers to use later versions
+								 of commons-io and Guava. SparseMap is tested with the version
+								 numbers stated. It may run with later versions, but you will 
+								 have to do your own testing. In general the use of both these 
+								 libraries is not sopisticated, and any version will probably do.
+								 ie, at your own risk	-->
 						<Import-Package>
-						  org.apache.commons.io; version="1.4",
-						  com.google.common.collect; version="9.0.0",
+							org.apache.commons.io; version="1.4",
+							com.google.common.collect; version="9.0.0",
 							*
 						</Import-Package>
 						<Private-Package>org.sakaiproject.nakamura.lite.*</Private-Package>
@@ -148,6 +148,49 @@
 				</executions>
 			</plugin>
 		</plugins>
+		<pluginManagement>
+			<plugins>
+				<!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+				<plugin>
+					<groupId>org.eclipse.m2e</groupId>
+					<artifactId>lifecycle-mapping</artifactId>
+					<version>1.0.0</version>
+					<configuration>
+						<lifecycleMappingMetadata>
+							<pluginExecutions>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.apache.felix</groupId>
+										<artifactId>maven-scr-plugin</artifactId>
+										<versionRange>[1.0.0,)</versionRange>
+										<goals><goal>scr</goal></goals>
+									</pluginExecutionFilter>
+									<action><ignore /></action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.apache.maven.plugins</groupId>
+										<artifactId>maven-install-plugin</artifactId>
+										<versionRange>[2.3.1,)</versionRange>
+										<goals><goal>install-file</goal></goals>
+									</pluginExecutionFilter>
+									<action><ignore /></action>
+								</pluginExecution>
+								<pluginExecution>
+									<pluginExecutionFilter>
+										<groupId>org.apache.maven.plugins</groupId>
+										<artifactId>maven-enforcer-plugin</artifactId>
+										<versionRange>[1.0.0,)</versionRange>
+										<goals><goal>enforce</goal></goals>
+									</pluginExecutionFilter>
+									<action><ignore /></action>
+								</pluginExecution>
+							</pluginExecutions>
+						</lifecycleMappingMetadata>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
 	</build>
 	<dependencies>
 		<dependency>
@@ -237,4 +280,23 @@
 			<!-- just needed for compiling, not runtime -->
 		</dependency>
 	</dependencies>
+
+	<!-- Sakai Maven2 repo has a copy of ye olde Cassandra thrift 0.6.5 jar -->
+	<repositories>
+		<repository>
+			<id>sakai-maven2</id>
+			<name>Sakai Maven Repo</name>
+			<layout>default</layout>
+			<url>http://source.sakaiproject.org/maven2</url>
+			<releases>
+				<enabled>true</enabled>
+				<checksumPolicy>ignore</checksumPolicy>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+				<checksumPolicy>ignore</checksumPolicy>
+			</snapshots>
+		</repository>
+	</repositories>
 </project>
+
