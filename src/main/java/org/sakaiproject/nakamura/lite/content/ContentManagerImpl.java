@@ -626,16 +626,39 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.sakaiproject.nakamura.api.lite.content.ContentManager#move(java.lang.String,
+     *      java.lang.String)
+     */
     public List<ActionRecord> move(String from, String to) throws AccessDeniedException,
         StorageClientException {
-      return move(from, to, false);
+      return move(from, to, false, true);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.sakaiproject.nakamura.api.lite.content.ContentManager#move(java.lang.String,
+     *      java.lang.String, boolean)
+     */
     public List<ActionRecord> move(String from, String to, boolean force)
         throws AccessDeniedException, StorageClientException {
+      return move(from, to, force, true);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.sakaiproject.nakamura.api.lite.content.ContentManager#move(java.lang.String,
+     *      java.lang.String, boolean, boolean)
+     */
+    public List<ActionRecord> move(String from, String to, boolean force,
+        boolean keepDestinationHistory) throws AccessDeniedException, StorageClientException {
       List<ActionRecord> record = Lists.newArrayList();
 
-      moveContent(from, to, force);
+      moveContent(from, to, force, keepDestinationHistory);
 
       PreemptiveIterator<String> iter = (PreemptiveIterator<String>) listChildPaths(from);
       while (iter.hasNext()) {
@@ -644,14 +667,16 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         // Since this is a direct child of the previous from, only the last token needs to
         // be appended to "to"
         record.addAll(move(childPath,
-            to.concat(childPath.substring(childPath.lastIndexOf("/"))), force));
+            to.concat(childPath.substring(childPath.lastIndexOf("/"))), force,
+            keepDestinationHistory));
       }
 
       record.add(new ActionRecord(from, to));
       return record;
     }
-    
-    private void moveContent(String from, String to, boolean force) throws AccessDeniedException, StorageClientException {
+
+    private void moveContent(String from, String to, boolean force, boolean keepDestinationHistory)
+        throws AccessDeniedException, StorageClientException {
         // to move, get the structure object out and modify, recreating parent
         // objects as necessary.
         checkOpen();
@@ -659,27 +684,45 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         accessControlManager.check(Security.ZONE_CONTENT, to,
                 Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
         Map<String, Object> fromStructure = Maps.newHashMap(getCached(keySpace, contentColumnFamily, from));
-        if (fromStructure == null || fromStructure.size() == 0) {
-            String contentId = (String)fromStructure.get(STRUCTURE_UUID_FIELD);
-            Map<String, Object> content = getCached(keySpace, contentColumnFamily, contentId);
-            if (content == null || content.size() == 0 && TRUE.equals(content.get(DELETED_FIELD))) {
+        String fromContentId = null;
+        Map<String, Object> fromContent = null;
+        if (fromStructure != null && fromStructure.size() > 0) {
+            fromContentId = (String)fromStructure.get(STRUCTURE_UUID_FIELD);
+            fromContent = getCached(keySpace, contentColumnFamily, fromContentId);
+            if (fromContent == null || fromContent.size() == 0 && TRUE.equals(fromContent.get(DELETED_FIELD))) {
                 throw new StorageClientException("The source content to move from " + from
                     + " does not exist, move operation failed");
             }
         }
         Map<String, Object> toStructure = getCached(keySpace, contentColumnFamily, to);
         if (toStructure != null && toStructure.size() > 0) {
-            String contentId = (String)toStructure.get(STRUCTURE_UUID_FIELD);
-            Map<String, Object> content = getCached(keySpace, contentColumnFamily, contentId);
-            if (content != null && content.size() > 0) {
+            String toContentId = (String)toStructure.get(STRUCTURE_UUID_FIELD);
+            Map<String, Object> toContent = getCached(keySpace, contentColumnFamily, toContentId);
+            if (toContent != null && toContent.size() > 0) {
               if (force) {
-                delete(to);
-              } else if (!TRUE.equals(content.get(DELETED_FIELD))) {
+                if (!keepDestinationHistory) {
+                  delete(to);
+                } else {
+                  // set our content to have the history of the destination
+                  String versionHistoryId = (String) toContent.get(VERSION_HISTORY_ID_FIELD);
+                  if (versionHistoryId != null) {
+                    fromContent.put(VERSION_HISTORY_ID_FIELD, versionHistoryId);
+                    putCached(keySpace, contentColumnFamily, fromContentId, fromContent, false);
+                  }
+
+                  // be sure to clean up our revision history to save orphans
+                  String fromVersionHistoryId = (String) fromContent.get(VERSION_HISTORY_ID_FIELD);
+                  if (fromVersionHistoryId != null) {
+                    removeCached(toContentId, contentColumnFamily, fromVersionHistoryId);
+                  }
+                }
+              } else if (!TRUE.equals(toContent.get(DELETED_FIELD))) {
                 throw new StorageClientException("The destination content to move to " + to
                     + "  exists, move operation failed");
               }
             }
         }
+
         String idStore = (String) fromStructure.get(STRUCTURE_UUID_FIELD);
 
         // move the content to the new location, then delete the old.
