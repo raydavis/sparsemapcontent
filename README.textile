@@ -1,10 +1,10 @@
 h1. Map Content System.
 
-h2. Rational
+h2. Rationale
 
   In the Q1 release of Nakamura we had major scalability and concurrency problems caused mainly by our use cases for a content
 store not being closely aligned with those of Jackrabbit. We were not able to work around those problems and although we did manage
-to release the code, its quite clear that in certain areas Jackrabbit wont work for us. This should not reflect badly on Jackrabbit, 
+to release the code, its quite clear that in certain areas Jackrabbit won't work for us. This should not reflect badly on Jackrabbit, 
 but it is a realization that our use cases are not compatible with Jackrabbit when exposed to scale.
 
   This code base is a reaction to that. It aims to be really simple, completely concurrent with no synchronization and designed to scale
@@ -43,9 +43,6 @@ h2. Completed Backlog
 # Provide Scoped (as in Transaction Scoped) implementation of StorageClient that chains to a real storage client (wont fix since there which Jackrabbit in place there is no guarentee that the session you see on the request is the session that should be committed)
 # Do scalability testing on MySQL and Cassandra (done 22/11/2010)
 # Implement SparseMapUserManager and related classes in th server bundle in Sling. (done 28/11/2010)
-
-
-
 
 
 h2. Tests
@@ -90,9 +87,7 @@ Same as above, using a local MySQL Instance.
 
 h3. Cassandra
 
-Using an untuned OOTB Cassandra instance running on the same box as the test, fighting for processor Cores.
-
-                                     
+Using an untuned OOTB Cassandra instance running on the same box as the test, fighting for processor Cores.                                   
                                      
 |Threads|Time(s)|Throughput|Throughput per thread|Speedup|Concurrent Efficiency|
 |      1|   1.14|       873|                  873|      1|                 100%|
@@ -109,10 +104,8 @@ Using an untuned OOTB Cassandra instance running on the same box as the test, fi
 
 Throughput is users added per second.
 
-
 So far it looks like the code is concurrent, but MySQL is considerably slower than Cassandra or Memory. Below the Fighting for cores
 the box doesn't have enough CPUs to support the DB if present and the code.
-
 
 
 h1. Contributions, Patches, and License.
@@ -122,7 +115,7 @@ a contribution by means of a patch or otherwise please ensure that you read and 
 will be accepted, outlined in the NOTICES file. All patches and contributions are made under those terms with no exceptions.
 
 I am sorry if this sounds a bit legal, but I want to be able to always license this software to the Sakai Foundation under an Apache 2 license
-and so I have to insist that no contributions are made that would prevent that from happening. I cani't ask everyone who submits a patch to sign a 
+and so I have to insist that no contributions are made that would prevent that from happening. I can't ask everyone who submits a patch to sign a 
 legal document, so this is the next best thing. If you have a problem with this approach, please email me and we can try and work it out.
 
 BTW, IANAL :)
