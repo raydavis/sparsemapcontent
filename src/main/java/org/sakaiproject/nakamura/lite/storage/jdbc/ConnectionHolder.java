@@ -33,9 +33,9 @@ public class ConnectionHolder {
     private Connection connection;
     private long lastUsed;
     private long lastValidated;
-    private JDBCStorageClientPool jdbcStorageClientPool;
+    private BaseJDBCStorageClientPool jdbcStorageClientPool;
 
-    public ConnectionHolder(Connection connection, JDBCStorageClientPool jdbcStorageClientPool) {
+    public ConnectionHolder(Connection connection, BaseJDBCStorageClientPool jdbcStorageClientPool) {
         this.lastUsed = System.currentTimeMillis();
         this.lastValidated = 0L; // force the connection to get validated, even if its new.
         this.connection = connection;

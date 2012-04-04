@@ -41,7 +41,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClient;
-import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClientPool;
+import org.sakaiproject.nakamura.lite.storage.jdbc.BaseJDBCStorageClientPool;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -56,7 +56,7 @@ public class JDBCStorageClientTest {
   JDBCStorageClient client;
 
   @Mock
-  JDBCStorageClientPool connPool;
+  BaseJDBCStorageClientPool connPool;
 
   @Mock(answer = Answers.RETURNS_DEEP_STUBS)
   Connection conn;
@@ -87,7 +87,7 @@ public class JDBCStorageClientTest {
     when(conn.getMetaData().getDatabaseMinorVersion()).thenReturn(0);
 
 
-    sqlConfig = new JDBCStorageClientPool().getSqlConfig(conn);
+    sqlConfig = new BaseJDBCStorageClientPool().getSqlConfig(conn);
     Set<String> colnames = ImmutableSet.of("conjunctions:key1","conjunctions:key2","conjunctions:key3","conjunctions:key4",
             "conjunctions:testKey1","conjunctions:testKey2","conjunctions:testKey3","conjunctions:testKey4");
 

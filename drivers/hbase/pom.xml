@@ -10,7 +10,7 @@
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.hbase-driver</artifactId>
 	<packaging>bundle</packaging>
-	<version>0.90.3-0.1-SNAPSHOT</version>
+	<version>0.1-SNAPSHOT</version>
 	<name>Sparse Map :: HBase SPI Implementation</name>
 	<description>Storage SPI implementation using HBase </description>
 	<scm>
@@ -35,8 +35,6 @@
 						<Service-Component></Service-Component>
 						<Fragment-Host>org.sakaiproject.nakamura.core</Fragment-Host>
 						<Private-Package>org.sakaiproject.nakamura.lite.storage.hbase.*</Private-Package>
-						<Embed-Transitive>true</Embed-Transitive>
-						<Embed-Dependency>hbase</Embed-Dependency>
 					</instructions>
 				</configuration>
 			</plugin>

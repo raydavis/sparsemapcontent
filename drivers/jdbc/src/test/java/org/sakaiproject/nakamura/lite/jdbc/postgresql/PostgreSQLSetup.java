@@ -15,7 +15,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package org.sakaiproject.nakamura.lite.jdbc.derby;
+package org.sakaiproject.nakamura.lite.jdbc.postgresql;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -23,38 +23,33 @@ import com.google.common.collect.ImmutableMap.Builder;
 import org.sakaiproject.nakamura.api.lite.Configuration;
 import org.sakaiproject.nakamura.lite.storage.jdbc.BaseJDBCStorageClientPool;
 
-public class DerbySetup {
+public class PostgreSQLSetup {
 
     private static BaseJDBCStorageClientPool clientPool = null;
 
-    private synchronized static BaseJDBCStorageClientPool createClientPool(Configuration configuration, String location) {
+    public synchronized static BaseJDBCStorageClientPool createClientPool(Configuration configuration) {
         try {
             BaseJDBCStorageClientPool connectionPool = new BaseJDBCStorageClientPool();
-            Builder<String, Object> configBuilder = ImmutableMap.builder();
-            if ( location == null ) {
-                location = "jdbc:derby:memory:MyDB;create=true";
-            }
-            configBuilder.put(BaseJDBCStorageClientPool.CONNECTION_URL,
-            location);
-            configBuilder.put(BaseJDBCStorageClientPool.JDBC_DRIVER, "org.apache.derby.jdbc.EmbeddedDriver");
-            configBuilder.put("store-base-dir", "target/store");
-            configBuilder.put(Configuration.class.getName(), configuration);
-            connectionPool.activate(configBuilder.build());
+            Builder<String, Object> b = ImmutableMap.builder();
+            b.put(BaseJDBCStorageClientPool.CONNECTION_URL,"jdbc:postgresql://localhost/nak");
+            b.put(BaseJDBCStorageClientPool.JDBC_DRIVER, "org.postgresql.Driver");
+            b.put("username", "nakamura");
+            b.put("password", "nakamura");
+            b.put("store-base-dir", "target/store");
+            b.put(Configuration.class.getName(), configuration);
+            connectionPool
+                    .activate(b.build());
             return connectionPool;
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e.getMessage(), e);
         }
     }
-    
-    public static BaseJDBCStorageClientPool  getClientPool(Configuration configuration) {
-        return getClientPool(configuration, null);
-    }
 
-    public synchronized static BaseJDBCStorageClientPool getClientPool(Configuration configuration, String location) {
-        if ( clientPool == null ) {
-            clientPool = createClientPool(configuration, location);
+    public synchronized static BaseJDBCStorageClientPool getClientPool(Configuration configuration) {
+        if ( clientPool == null) {
+            clientPool = createClientPool(configuration);
         }
         return clientPool;
-    }
+    }   
 
 }
