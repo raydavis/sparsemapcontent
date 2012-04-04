@@ -10,7 +10,7 @@
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>core-base</artifactId>
 	<packaging>pom</packaging>
-	<version>4</version>
+	<version>5-SNAPSHOT</version>
 	<description>Core Base Pom for Map Content Storage bundle.</description>
 	<name>Core Base</name>
 	<properties>
@@ -231,21 +231,6 @@
 <!-- D I S T R I B U T I O N M A N A G E M E N T -->
 <!-- ====================================================================== -->
   	<distributionManagement>
-    	<downloadUrl>http://source.sakaiproject.org/maven2/</downloadUrl>
-      	<snapshotRepository>
-        	<uniqueVersion>false</uniqueVersion>
-        	<id>sakai-maven-snapshots-scp</id>
-        	<name>Sakai snapshot Repo</name>
-        	<url>scp://source.sakaiproject.org/var/www/html/maven2-snapshots</url>
-        	<layout>default</layout>
-      	</snapshotRepository>
-      	<repository>
-        	<uniqueVersion>false</uniqueVersion>
-        	<id>sakai-maven2-scp</id>
-        	<name>Sakai maven2 repository</name>
-        	<url>scp://source.sakaiproject.org/var/www/html/maven2</url>
-        	<layout>default</layout>
-      	</repository>
       	<site>
         	<id>sakai-site</id>
         	<name>Sakai release Site</name>
@@ -278,7 +263,7 @@
       		</snapshots>
     	</repository>
   	</repositories>
-	<url>http://www.tfd.co.uk</url>
+	<url>http://sakaiproject.org</url>
 	<licenses>
 		<license>
 			<name>Apache 2</name>
