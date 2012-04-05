@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.sakaiproject.nakamura</groupId>
+    <artifactId>core-base</artifactId>
+    <version>5-SNAPSHOT</version>
+    <relativePath>../../parent/pom.xml</relativePath>
+  </parent>
+  <artifactId>org.sakaiproject.nakamura.jdbc-driver</artifactId>
+  <packaging>bundle</packaging>
+  <version>0.1-SNAPSHOT</version>
+  <name>Sakai Nakamura :: Generic JDBC SPI Implementation</name>
+  <description>Storage SPI implementation using JDBC </description>
+  <scm>
+     <connection>scm:git:git://github.com/sakaiproject/sparsemapcontent.git</connection>
+     <developerConnection>scm:git:git@github.com:sakaiproject/sparsemapcontent.git</developerConnection>
+     <url>http://github.com/sakaiproject/sparsemapcontent/</url>
+  </scm>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.felix</groupId>
+        <artifactId>maven-bundle-plugin</artifactId>
+        <extensions>true</extensions>
+        <configuration>
+          <instructions>
+            <Bundle-Category>driver</Bundle-Category>
+            <Export-Package> !* </Export-Package>
+            <Import-Package> !* </Import-Package>
+            <Service-Component />
+            <Fragment-Host>org.sakaiproject.nakamura.core</Fragment-Host>
+          </instructions>
+        </configuration>
+      </plugin>
+      <plugin>
+		<groupId>org.apache.maven.plugins</groupId>
+		<artifactId>maven-surefire-plugin</artifactId>
+		<version>2.5</version>
+		<configuration>
+		  <includes>
+		    <include>**/Test*.java</include>
+		    <include>**/*Test.java</include>
+		    <include>**/*TestCase.java</include>
+		  </includes>
+		  <excludes>
+		  	<!--
+		      Comment excludes to enable database specific tests. Ensure you 
+		      modify the setup java e.g. \src\test\java\org\sakaiproject\nakamura\lite\jdbc\oracle\oraclesetup.java 
+		      to include your database connection details
+		    -->
+		    <exclude>**/oracle/**</exclude>
+		    <exclude>**/mysql/**</exclude>
+		    <exclude>**/postgresql/**</exclude>
+		  </excludes>
+		</configuration>
+	  </plugin>
+    </plugins>
+  </build>
+
+  <dependencies>
+<!-- OSGi Libraries -->
+    <dependency>
+      <groupId>org.apache.felix</groupId>
+      <artifactId>org.apache.felix.scr.annotations</artifactId>
+    </dependency>
+    <dependency>
+       <groupId>org.sakaiproject.nakamura</groupId>
+       <artifactId>org.sakaiproject.nakamura.core</artifactId>
+       <version>1.5.1-SNAPSHOT</version>
+    </dependency>
+    <dependency>
+      <groupId>findbugs</groupId>
+      <artifactId>annotations</artifactId>
+      <version>1.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+    
+    <!-- Test dependencies -->
+    <dependency>
+       <groupId>org.sakaiproject.nakamura</groupId>
+       <artifactId>org.sakaiproject.nakamura.core</artifactId>
+       <version>1.5.1-SNAPSHOT</version>
+       <classifier>tests</classifier>
+       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>1.5.10</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.4</version>
+      <scope>test</scope>
+    </dependency>
+    
+    <!-- Database-specific drivers for tests -->
+    <dependency>
+	  <groupId>mysql</groupId>
+	  <artifactId>mysql-connector-java</artifactId>
+	  <version>5.1.17</version>
+	  <scope>test</scope>
+	</dependency>
+	<dependency>
+      <groupId>org.apache.derby</groupId>
+      <artifactId>derby</artifactId>
+      <version>10.6.2.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+	  <groupId>postgresql</groupId>
+	  <artifactId>postgresql</artifactId>
+	  <version>9.0-801.jdbc4</version>
+	  <scope>test</scope>
+	</dependency>
+	<!--
+	  To use Oracle, install ojdbc14.jar to your local mvn repository and then uncomment the dependency below.
+	  
+	  mvn install:install-file -Dfile=path-to-your-ojdbc14-jar\
+	    -DgroupId=com.oracle\
+	    -DartifactId=ojdbc\
+	    -Dversion=1.4\
+	    -Dpackaging=jar
+	-->
+	<!--dependency>
+	  <groupId>com.oracle</groupId>
+	  <artifactId>ojdbc</artifactId>
+	  <version>1.4</version>
+	  <scope>test</scope>
+	</dependency-->
+    
+  </dependencies>
+</project>

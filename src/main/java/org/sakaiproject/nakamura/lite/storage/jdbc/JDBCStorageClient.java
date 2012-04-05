@@ -122,7 +122,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             "ac:_:parenthash");
     private static final Map<String, String> COLUMN_NAME_MAPPING = ImmutableMap.of("_:parenthash","parenthash");
 
-    private JDBCStorageClientPool jcbcStorageClientConnection;
+    private BaseJDBCStorageClientPool jcbcStorageClientConnection;
     private Map<String, Object> sqlConfig;
     private boolean active;
     private StreamedContentHelper streamedContentHelper;
@@ -140,7 +140,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     private boolean sqlNamePadding;
     private int maxNameLength;
 
-    public JDBCStorageClient(JDBCStorageClientPool jdbcStorageClientConnectionPool,
+    public JDBCStorageClient(BaseJDBCStorageClientPool jdbcStorageClientConnectionPool,
             Map<String, Object> properties, Map<String, Object> sqlConfig, Set<String> indexColumns, Set<String> indexColumnTypes, Map<String, String> indexColumnsNames, boolean enforceWideColums) throws SQLException,
             NoSuchAlgorithmException, StorageClientException {
         if ( jdbcStorageClientConnectionPool == null ) {

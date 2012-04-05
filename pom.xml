@@ -120,12 +120,6 @@
 						<include>**/Test*.java</include>
 						<include>**/*Test.java</include>
 						<include>**/*TestCase.java</include>
-						<!-- Uncomment includes to enable database specific tests. Ensure you 
-							modify the setup java e.g. \src\test\java\org\sakaiproject\nakamura\lite\jdbc\oracle\oraclesetup.java 
-							to include your database connection details -->
-						<!-- <include>**/oracle/*Man.java</include> -->
-						<!-- <include>**/mysql/*Man.java</include> -->
-						<!-- <include>**/postgresql/*Man.java</include> -->
 					</includes>
 				</configuration>
 			</plugin>

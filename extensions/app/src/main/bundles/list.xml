@@ -135,21 +135,9 @@
         </bundle>
         <bundle>
             <groupId>org.sakaiproject.nakamura</groupId>
-            <artifactId>org.sakaiproject.nakamura.postgres-driver</artifactId>
-            <version>9.0-801-1.5-SNAPSHOT</version>
+            <artifactId>org.sakaiproject.nakamura.jdbc-driver</artifactId>
+            <version>1.5-SNAPSHOT</version>
         </bundle>
-<!--
-        <bundle>
-            <groupId>org.sakaiproject.nakamura</groupId>
-            <artifactId>org.sakaiproject.nakamura.mysql-driver</artifactId>
-            <version>5.1.13-1.5-SNAPSHOT</version>
-        </bundle>
-        <bundle>
-            <groupId>org.sakaiproject.nakamura</groupId>
-            <artifactId>org.sakaiproject.nakamura.derby-driver</artifactId>
-            <version>10.6.2.1-1.5-SNAPSHOT</version>
-        </bundle>
--->
         <bundle>
             <groupId>org.sakaiproject.nakamura</groupId>
             <artifactId>org.sakaiproject.nakamura.solr</artifactId>

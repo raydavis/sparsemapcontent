@@ -10,7 +10,7 @@
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.mongo-driver</artifactId>
 	<packaging>bundle</packaging>
-	<version>2.7.2-0.1-SNAPSHOT</version>
+	<version>0.1-SNAPSHOT</version>
 	<name>Sparse Map :: MongoDB SPI Implementation</name>
 	<description>Storage SPI implementation using MongoDB </description>
 	<scm>
@@ -35,8 +35,6 @@
 						<Service-Component></Service-Component>
 						<Fragment-Host>org.sakaiproject.nakamura.core</Fragment-Host>
 						<Private-Package>org.sakaiproject.nakamura.lite.storage.mongo.*</Private-Package>
-						<Embed-Transitive>true</Embed-Transitive>
-						<Embed-Dependency>mongo-java-driver</Embed-Dependency>
 					</instructions>
 				</configuration>
 			</plugin>
