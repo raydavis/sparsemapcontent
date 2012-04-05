@@ -56,6 +56,7 @@ import java.util.Set;
 import com.google.common.collect.Ordering;
 import org.sakaiproject.nakamura.api.lite.CacheHolder;
 import org.sakaiproject.nakamura.api.lite.Configuration;
+import org.sakaiproject.nakamura.api.lite.RemoveProperty;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.StorageConstants;
@@ -424,6 +425,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                     touch ? System.currentTimeMillis() : content.getProperty(LASTMODIFIED_FIELD));
             toSave.put(LASTMODIFIED_BY_FIELD,
                     touch? accessControlManager.getCurrentUserId() : content.getProperty(LASTMODIFIED_BY_FIELD));
+            toSave.put(DELETED_FIELD, new RemoveProperty());
             LOGGER.debug("New Content with {} {} ", id, toSave);
         } else if (content.isUpdated()) {
             originalProperties = content.getOriginalProperties();
@@ -689,7 +691,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (fromStructure != null && fromStructure.size() > 0) {
             fromContentId = (String)fromStructure.get(STRUCTURE_UUID_FIELD);
             fromContent = getCached(keySpace, contentColumnFamily, fromContentId);
-            if (fromContent == null || fromContent.size() == 0 && TRUE.equals(fromContent.get(DELETED_FIELD))) {
+            if (fromContent == null || fromContent.size() == 0 || TRUE.equals(fromContent.get(DELETED_FIELD))) {
                 throw new StorageClientException("The source content to move from " + from
                     + " does not exist, move operation failed");
             }
@@ -703,17 +705,17 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 if (!keepDestinationHistory) {
                   delete(to);
                 } else {
+                  // be sure to clean up our revision history to save orphans
+                  String fromVersionHistoryId = (String) fromContent.get(VERSION_HISTORY_ID_FIELD);
+                  if (fromVersionHistoryId != null) {
+                    removeCached(toContentId, contentColumnFamily, fromVersionHistoryId);
+                  }
+
                   // set our content to have the history of the destination
                   String versionHistoryId = (String) toContent.get(VERSION_HISTORY_ID_FIELD);
                   if (versionHistoryId != null) {
                     fromContent.put(VERSION_HISTORY_ID_FIELD, versionHistoryId);
                     putCached(keySpace, contentColumnFamily, fromContentId, fromContent, false);
-                  }
-
-                  // be sure to clean up our revision history to save orphans
-                  String fromVersionHistoryId = (String) fromContent.get(VERSION_HISTORY_ID_FIELD);
-                  if (fromVersionHistoryId != null) {
-                    removeCached(toContentId, contentColumnFamily, fromVersionHistoryId);
                   }
                 }
               } else if (!TRUE.equals(toContent.get(DELETED_FIELD))) {
