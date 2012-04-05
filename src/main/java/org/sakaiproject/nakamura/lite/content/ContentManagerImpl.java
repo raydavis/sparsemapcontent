@@ -689,7 +689,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         if (fromStructure != null && fromStructure.size() > 0) {
             fromContentId = (String)fromStructure.get(STRUCTURE_UUID_FIELD);
             fromContent = getCached(keySpace, contentColumnFamily, fromContentId);
-            if (fromContent == null || fromContent.size() == 0 && TRUE.equals(fromContent.get(DELETED_FIELD))) {
+            if (fromContent == null || fromContent.size() == 0 || TRUE.equals(fromContent.get(DELETED_FIELD))) {
                 throw new StorageClientException("The source content to move from " + from
                     + " does not exist, move operation failed");
             }
@@ -703,17 +703,17 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                 if (!keepDestinationHistory) {
                   delete(to);
                 } else {
+                  // be sure to clean up our revision history to save orphans
+                  String fromVersionHistoryId = (String) fromContent.get(VERSION_HISTORY_ID_FIELD);
+                  if (fromVersionHistoryId != null) {
+                    removeCached(toContentId, contentColumnFamily, fromVersionHistoryId);
+                  }
+
                   // set our content to have the history of the destination
                   String versionHistoryId = (String) toContent.get(VERSION_HISTORY_ID_FIELD);
                   if (versionHistoryId != null) {
                     fromContent.put(VERSION_HISTORY_ID_FIELD, versionHistoryId);
                     putCached(keySpace, contentColumnFamily, fromContentId, fromContent, false);
-                  }
-
-                  // be sure to clean up our revision history to save orphans
-                  String fromVersionHistoryId = (String) fromContent.get(VERSION_HISTORY_ID_FIELD);
-                  if (fromVersionHistoryId != null) {
-                    removeCached(toContentId, contentColumnFamily, fromVersionHistoryId);
                   }
                 }
               } else if (!TRUE.equals(toContent.get(DELETED_FIELD))) {
