@@ -56,6 +56,7 @@ import java.util.Set;
 import com.google.common.collect.Ordering;
 import org.sakaiproject.nakamura.api.lite.CacheHolder;
 import org.sakaiproject.nakamura.api.lite.Configuration;
+import org.sakaiproject.nakamura.api.lite.RemoveProperty;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.StorageConstants;
@@ -424,6 +425,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                     touch ? System.currentTimeMillis() : content.getProperty(LASTMODIFIED_FIELD));
             toSave.put(LASTMODIFIED_BY_FIELD,
                     touch? accessControlManager.getCurrentUserId() : content.getProperty(LASTMODIFIED_BY_FIELD));
+            toSave.put(DELETED_FIELD, new RemoveProperty());
             LOGGER.debug("New Content with {} {} ", id, toSave);
         } else if (content.isUpdated()) {
             originalProperties = content.getOriginalProperties();
