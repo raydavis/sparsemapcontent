@@ -5,7 +5,7 @@
 		<groupId>org.sakaiproject.nakamura</groupId>
 		<artifactId>core-base</artifactId>
 		<version>5-SNAPSHOT</version>
-		<relativePath>parent/pom.xml</relativePath>
+		<relativePath>../pom.xml</relativePath>
 	</parent>
 	<groupId>org.sakaiproject.nakamura</groupId>
 	<artifactId>org.sakaiproject.nakamura.core</artifactId>
@@ -122,24 +122,6 @@
 						<include>**/*TestCase.java</include>
 					</includes>
 				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-install-plugin</artifactId>
-				<version>2.3.1</version>
-				<executions>
-					<execution>
-						<id>install-parent</id>
-						<phase>initialize</phase>
-						<goals>
-							<goal>install-file</goal>
-						</goals>
-						<configuration>
-							<file>parent/pom.xml</file>
-							<pomFile>parent/pom.xml</pomFile>
-						</configuration>
-					</execution>
-				</executions>
 			</plugin>
 		</plugins>
 		<pluginManagement>

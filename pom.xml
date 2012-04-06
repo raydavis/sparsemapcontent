@@ -17,6 +17,10 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.test.redirectTestOutputToFile>true</maven.test.redirectTestOutputToFile>
 	</properties>
+	<modules>
+		<module>core</module>
+		<module>drivers/jdbc</module>
+	</modules>
 	<scm>
 		<connection>scm:git:git://github.com/sakaiproject/sparsemapcontent.git</connection>
 		<developerConnection>scm:git:git@github.com:sakaiproject/sparsemapcontent.git</developerConnection>
