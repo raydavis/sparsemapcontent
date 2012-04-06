@@ -384,7 +384,7 @@ public abstract class AbstractContentManagerTest {
         Assert.assertNotNull(content);
         Assert.assertEquals("valueParent", content.getProperty("propParent"));
 
-        contentManager.delete("/testSimpleDelete");
+        contentManager.delete("/testSimpleDelete", true);
 
     }
 
@@ -412,7 +412,7 @@ public abstract class AbstractContentManagerTest {
         Assert.assertNotNull(content);
         Assert.assertEquals("valueParent", content.getProperty("propParent"));
 
-        contentManager.delete("testSimpleDeleteRoot");
+        contentManager.delete("testSimpleDeleteRoot", true);
 
     }
 

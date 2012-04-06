@@ -136,6 +136,7 @@ public interface ContentManager {
      *             possibly at parent locations.
      */
     void delete(String path) throws AccessDeniedException, StorageClientException;
+    void delete(String path, boolean recurse) throws AccessDeniedException, StorageClientException;
 
     /**
      * Write a body stream associated with the content item at the specified
