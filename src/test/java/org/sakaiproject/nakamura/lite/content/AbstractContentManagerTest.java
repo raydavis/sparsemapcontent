@@ -870,6 +870,7 @@ public abstract class AbstractContentManagerTest {
     adminContentManager.move(from, to, true);
 
     // check the base content is there
+    Assert.assertFalse(adminContentManager.exists(from));
     Assert.assertTrue(adminContentManager.exists(to));
 
     // check the history
