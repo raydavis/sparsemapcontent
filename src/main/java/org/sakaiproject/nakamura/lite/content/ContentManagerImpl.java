@@ -57,6 +57,7 @@ import com.google.common.collect.Ordering;
 import org.sakaiproject.nakamura.api.lite.CacheHolder;
 import org.sakaiproject.nakamura.api.lite.Configuration;
 import org.sakaiproject.nakamura.api.lite.RemoveProperty;
+import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.StorageConstants;
@@ -501,8 +502,8 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         accessControlManager.check(Security.ZONE_CONTENT, path, Permissions.CAN_DELETE);
         Iterator<String> children = listChildPaths(path);
         if (!recurse && children.hasNext()) {
-            throw new StorageClientException(
-                "Unable to delete a path with active children. Set recurse=true to delete a tree.");
+            throw new StorageClientException("Unable to delete a path with active children ["
+                + path + "]. Set recurse=true to delete a tree.");
         }
         
         while (children.hasNext()) {
@@ -703,6 +704,26 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         boolean keepDestinationHistory) throws AccessDeniedException, StorageClientException {
       List<ActionRecord> record = Lists.newArrayList();
 
+      // delete the nodes at `to` that aren't part of `from` if we're keeping destination
+      // history
+      if (keepDestinationHistory) {
+        // put the last element of the paths into a set for matching
+        PreemptiveIterator<String> fromChildrenPathsIter = (PreemptiveIterator<String>) listChildPaths(from);
+        Set<String> fromChildrenPaths = Sets.newHashSet();
+        while(fromChildrenPathsIter.hasNext()) {
+          fromChildrenPaths.add(lastElement(fromChildrenPathsIter.next()));
+        }
+
+        // check for last elements in the `to` that aren't in the `from` since we're keeping
+        // destination history
+        Iterator<String> toChildrenPaths = listChildPaths(to);
+        while (toChildrenPaths.hasNext()) {
+          String toChildPath = toChildrenPaths.next();
+          if (!fromChildrenPaths.contains(lastElement(toChildPath))) {
+            delete(toChildPath, true);
+          }
+        }
+      }
       moveContent(from, to, force, keepDestinationHistory);
 
       PreemptiveIterator<String> iter = (PreemptiveIterator<String>) listChildPaths(from);
@@ -759,9 +780,27 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
                   }
 
                   // set our content to have the history of the destination
+                  boolean updateFrom = false;
                   String versionHistoryId = (String) toContent.get(VERSION_HISTORY_ID_FIELD);
                   if (versionHistoryId != null) {
+                    updateFrom = true;
                     fromContent.put(VERSION_HISTORY_ID_FIELD, versionHistoryId);
+                  }
+
+                  // remove `to` properties that aren't in the `from` content. this allows us to
+                  // replace the `to` with the `from` rather than accumulate the properties
+                  Set<String> toKeys = toContent.keySet();
+                  Set<String> fromKeys = fromContent.keySet();
+                  toKeys.removeAll(fromKeys);
+                  if (toKeys.size() > 0) {
+                    for (String toKey : toKeys) {
+                      if (!toKey.startsWith(Repository.SYSTEM_PROP_PREFIX)) {
+                        updateFrom = true;
+                        fromContent.put(toKey, new RemoveProperty());
+                      }
+                    }
+                  }
+                  if (updateFrom) {
                     putCached(keySpace, contentColumnFamily, fromContentId, fromContent, false);
                   }
                 }
@@ -1178,5 +1217,20 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         moved = true;
       }
       return moved;
+    }
+
+    private String lastElement(String dest) {
+        int i = dest.lastIndexOf('/');
+        if ( i == dest.length()-1 ) {
+            return "";
+        }
+        if (i > -1) {
+            dest = dest.substring(i+1);
+        }
+        i = dest.indexOf('.');
+        if (i > -1) {
+            dest = dest.substring(0, i);
+        }
+        return dest;
     }
 }
