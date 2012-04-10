@@ -853,7 +853,7 @@ public abstract class AbstractContentManagerTest {
 
     // add some initial content
     adminContentManager.update(new Content(from, ImmutableMap.<String, Object>of("prop1", "value1")));
-    adminContentManager.update(new Content(to, ImmutableMap.<String, Object>of("prop1", "value1")));
+    adminContentManager.update(new Content(to, ImmutableMap.<String, Object>of("prop2", "value2")));
 
     // save a version of the content and verify the history
     adminContentManager.saveVersion(from);
@@ -873,6 +873,11 @@ public abstract class AbstractContentManagerTest {
     Assert.assertFalse(adminContentManager.exists(from));
     Assert.assertTrue(adminContentManager.exists(to));
 
+    // ensure we don't have properties from the previous content version
+    Content movedTo = adminContentManager.get(to);
+    Assert.assertNull(movedTo.getProperty("prop2"));
+    Assert.assertEquals("value1", movedTo.getProperty("prop1"));
+
     // check the history
     history = adminContentManager.getVersionHistory(to);
     Assert.assertEquals(3, history.size());
@@ -889,7 +894,7 @@ public abstract class AbstractContentManagerTest {
 
     // add some initial content
     adminContentManager.update(new Content(from, ImmutableMap.<String, Object>of("prop1", "value1")));
-    adminContentManager.update(new Content(to, ImmutableMap.<String, Object>of("prop1", "value1")));
+    adminContentManager.update(new Content(to, ImmutableMap.<String, Object>of("prop2", "value2")));
 
     // save a version of the content and verify the history
     adminContentManager.saveVersion(from);
@@ -907,6 +912,11 @@ public abstract class AbstractContentManagerTest {
 
     // check the base content is there
     Assert.assertTrue(adminContentManager.exists(to));
+
+    // ensure we don't have properties from the previous content version
+    Content movedTo = adminContentManager.get(to);
+    Assert.assertNull(movedTo.getProperty("prop2"));
+    Assert.assertEquals("value1", movedTo.getProperty("prop1"));
 
     // check the history
     history = adminContentManager.getVersionHistory(to);
