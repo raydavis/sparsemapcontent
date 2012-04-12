@@ -423,6 +423,31 @@ public interface ContentManager {
      */
     void triggerRefreshAll() throws StorageClientException;
 
+    /**
+     * Replace the content at <code>content.getPath()</code> with <code>content</code>. This
+     * sets any properties in <code>content</code> to <code>new RemoveProperty()</code> if
+     * there exists a property in the current version at <code>content.getPath()</code> that
+     * is missing from <code>content</code>.
+     *
+     * @param content
+     *          The content to replace at <code>content.getPath()</code>.
+     * @throws AccessDeniedException
+     * @throws StorageClientException
+     */
+    void replace(Content content) throws AccessDeniedException, StorageClientException;
 
-
+    /**
+     * Replace the content at <code>content.getPath()</code> with <code>content</code>. This
+     * sets any properties in <code>content</code> to <code>new RemoveProperty()</code> if
+     * there exists a property in the current version at <code>content.getPath()</code> that
+     * is missing from <code>content</code>.
+     *
+     * @param content
+     *          The content to replace at <code>content.getPath()</code>.
+     * @param withTouch
+     *          Whether to the update timestamp of the content.
+     * @throws AccessDeniedException
+     * @throws StorageClientException
+     */
+    void replace(Content content, boolean withTouch) throws AccessDeniedException, StorageClientException;
 }

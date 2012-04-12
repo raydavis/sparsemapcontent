@@ -20,6 +20,7 @@ package org.sakaiproject.nakamura.api.lite;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
@@ -40,6 +41,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
@@ -700,4 +702,47 @@ public class StorageClientUtils {
         }
     }
 
+    /**
+     * Perform a set difference between the properties of <code>content0</code> and
+     * <code>content1</code>. The inputs are not modified.
+     *
+     * @param content0
+     * @param content1
+     * @return A {@link Set} of {@link String} that are the keys of properties that are in
+     *         <code>content0</code> but not in <code>content1</code>.
+     */
+    public static Set<String> diffProps(Content content0, Content content1) {
+      if (content0 == null) {
+        return Collections.emptySet();
+      }
+      if (content1 == null) {
+        return content0.getProperties().keySet();
+      }
+
+        return diffKeys(content0.getProperties(), content1.getProperties());
+    }
+
+    /**
+     * Perform a set difference between the keys of <code>keys0</code> and
+     * <code>keys1</code>. The inputs are not modified.
+     *
+     * @param keys0
+     * @param key1
+     * @return A {@link Set} of {@link String} that are the keys that are in
+     *         <code>content0</code> but not in <code>content1</code>.
+     */
+    public static <K,V> Set<K> diffKeys(Map<K, V> keys0, Map<K, V> keys1) {
+      if (keys1 == null || keys1.size() == 0) {
+        return keys0.keySet();
+      }
+      if (keys0 == null || keys0.size() == 0) {
+          return Collections.emptySet();
+      }
+
+      // collect the keys that exist
+      Set<K> retKeys = Sets.newHashSet(keys0.keySet());
+      // remove any keys that we're updating which leaves the keys we should remove
+      retKeys.removeAll(keys1.keySet());
+      return retKeys;
+    }
 }

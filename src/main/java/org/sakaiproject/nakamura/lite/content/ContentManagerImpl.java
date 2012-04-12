@@ -381,6 +381,61 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.sakaiproject.nakamura.api.lite.content.ContentManager#replace(org.sakaiproject.nakamura.api.lite.content.Content)
+     */
+    // TODO unit test
+    public void replace(Content content) throws AccessDeniedException,
+        StorageClientException {
+      replace(content, true);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * @see org.sakaiproject.nakamura.api.lite.content.ContentManager#replace(org.sakaiproject.nakamura.api.lite.content.Content, boolean)
+     */
+    // TODO unit test
+    public void replace(Content content, boolean withTouch)
+        throws AccessDeniedException, StorageClientException {
+      Content current = get(content.getPath());
+      if (current != null) {
+        Set<String> diffKeys = diffKeys(current.getProperties(), content.getProperties());
+        for (String diffKey : diffKeys) {
+          content.setProperty(diffKey, new RemoveProperty());
+        }
+      }
+      update(content, withTouch);
+    }
+
+    /**
+     * Set the keys in <code>update</code> to <code>new RemoveProperty()</code> if they are
+     * in <code>current</code> but not in <code>update</code>. System properties are ignored
+     * which is the only difference to {@link StorageClientUtils#diffKeys(Map, Map)}.
+     *
+     * @param current
+     *          The current content found at the location.
+     * @param update
+     *          The content that will be used to update the location.
+     * @return Set of keys to remove from <code>update</code>.
+     */
+    private Set<String> diffKeys(Map<String, Object> current, Map<String, Object> update) {
+      Set<String> diffKeys = StorageClientUtils.diffKeys(current, update);
+      if (diffKeys.size() > 0) {
+        // remove system properties
+        Iterator<String> keysIter = diffKeys.iterator();
+        while (keysIter.hasNext()) {
+          String diffKey = keysIter.next();
+          if (diffKey.startsWith(Repository.SYSTEM_PROP_PREFIX)) {
+            keysIter.remove();
+          }
+        }
+      }
+      return diffKeys;
+    }
+
     public void update(Content content) throws AccessDeniedException, StorageClientException {
         update(content, Boolean.TRUE);
     }
@@ -789,15 +844,11 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
                   // remove `to` properties that aren't in the `from` content. this allows us to
                   // replace the `to` with the `from` rather than accumulate the properties
-                  Set<String> toKeys = toContent.keySet();
-                  Set<String> fromKeys = fromContent.keySet();
-                  toKeys.removeAll(fromKeys);
-                  if (toKeys.size() > 0) {
-                    for (String toKey : toKeys) {
-                      if (!toKey.startsWith(Repository.SYSTEM_PROP_PREFIX)) {
-                        updateFrom = true;
-                        fromContent.put(toKey, new RemoveProperty());
-                      }
+                  Set<String> diffKeys = diffKeys(toContent, fromContent);
+                  if (diffKeys.size() > 0) {
+                    updateFrom = true;
+                    for (String diffKey : diffKeys) {
+                      fromContent.put(diffKey, new RemoveProperty());
                     }
                   }
                   if (updateFrom) {
