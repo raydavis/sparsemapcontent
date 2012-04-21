@@ -17,15 +17,10 @@
  */
 package org.sakaiproject.nakamura.lite.content;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterators;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -52,6 +47,7 @@ import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 import org.sakaiproject.nakamura.lite.ConfigurationImpl;
 import org.sakaiproject.nakamura.lite.LoggingStorageListener;
+import org.sakaiproject.nakamura.lite.RepositoryImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AccessControlManagerImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AuthenticatorImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.PrincipalValidatorResolverImpl;
@@ -62,10 +58,16 @@ import org.sakaiproject.nakamura.lite.storage.StorageClientPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 public abstract class AbstractContentManagerTest {
 
@@ -1090,6 +1092,112 @@ public abstract class AbstractContentManagerTest {
     contentManager.update(new Content("/testMoveWithChildren/test/ing", ImmutableMap.of("prop1",
         (Object) "value4")));
     contentManager.triggerRefreshAll();
+  }
+  
+  /**
+   * Verify that a user can successfully delete a content node by virtue of having write on its
+   * parent, while not having delete permission on the node itself. This is considered a valid
+   * scenario.
+   * 
+   * @throws StorageClientException
+   * @throws AccessDeniedException
+   */
+  @Test
+  public void testCanDeleteWithParentWrite() throws StorageClientException, AccessDeniedException {
+    String parentPath = "/ContentManagerTest/testCanDeleteWithParentWrite/parent";
+    String childPath1 = StorageClientUtils.newPath(parentPath, "child1");
+    String childPath2 = StorageClientUtils.newPath(childPath1, "child2");
+    
+    Repository repository = new RepositoryImpl(configuration, clientPool, new LoggingStorageListener());
+    
+    Session adminSession = repository.loginAdministrative();
+    adminSession.getAuthorizableManager().createUser("test", "test", "test", new HashMap<String, Object>());
+    
+    AccessControlManager accessControlManager = adminSession.getAccessControlManager();
+    ContentManager contentManager = adminSession.getContentManager();
+    contentManager.update(new Content(parentPath, ImmutableMap.<String, Object>of("test", "value")));
+    contentManager.update(new Content(childPath2, ImmutableMap.<String, Object>of("test", "value")));
+    
+    boolean couldNotDelete = false;
+    
+    // sanity check the permission setup
+    Session userSession = null;
+    try {
+      userSession = repository.login("test", "test");
+      userSession.getContentManager().delete(childPath2);
+      userSession.logout();
+    } catch (AccessDeniedException e) {
+      couldNotDelete = true;
+    }
+    Assert.assertTrue(couldNotDelete);
+    
+    // give access by virtue of giving CAN_WRITE to an ancestor
+    accessControlManager.setAcl(Security.ZONE_CONTENT, parentPath, new AclModification[] {
+       new AclModification(AclModification.grantKey("test"), Permissions.CAN_WRITE.getPermission(),
+           AclModification.Operation.OP_REPLACE)
+    });
+    
+    // try again, it should succeed
+    userSession = repository.login("test", "test");
+    userSession.getContentManager().delete(childPath2);
+    userSession.logout();
+    
+    Assert.assertTrue(contentManager.exists(parentPath));
+    Assert.assertTrue(contentManager.exists(childPath1));
+    Assert.assertFalse(contentManager.exists(childPath2));
+    
+  }
+
+
+  /**
+   * Verify that a user has access to move content from the source to the destination when they
+   * only have write as the root permission. The key functional scenario this ensures is that a
+   * user who has access to edit pooled content will have sufficient access to "publish" their
+   * changes to the live page.
+   * 
+   * @throws StorageClientException
+   * @throws AccessDeniedException
+   */
+  @Test
+  public void testCanMoveWithParentWrite() throws StorageClientException, AccessDeniedException {
+    String parentSourcePath = "/ContentManagerTest/testCanDeleteWithParentWrite/source/parent";
+    String parentDestPath = "/ContentManagerTest/testCanDeleteWithParentWrite/dest/parent";
+    String childSourcePath = StorageClientUtils.newPath(parentSourcePath, "child");
+    String childDestPath = StorageClientUtils.newPath(parentDestPath, "child");
+    
+    // create a non-admin user "test"
+    Repository repository = new RepositoryImpl(configuration, clientPool, new LoggingStorageListener());
+    Session adminSession = repository.loginAdministrative();
+    adminSession.getAuthorizableManager().createUser("test", "test", "test", new HashMap<String, Object>());
+    
+    // seed the test content
+    AccessControlManager accessControlManager = adminSession.getAccessControlManager();
+    ContentManager contentManager = adminSession.getContentManager();
+    contentManager.update(new Content(childSourcePath, ImmutableMap.<String, Object>of("test", "value-source")));
+    contentManager.update(new Content(childDestPath, ImmutableMap.<String, Object>of("test", "value-dest")));
+    
+    Session userSession = null;
+
+    // give access by virtue of giving CAN_WRITE to parent
+    accessControlManager.setAcl(Security.ZONE_CONTENT, parentSourcePath, new AclModification[] {
+       new AclModification(AclModification.grantKey("test"), Permissions.CAN_WRITE.combine(
+           Permissions.CAN_READ).getPermission(), AclModification.Operation.OP_REPLACE)
+    });
+    accessControlManager.setAcl(Security.ZONE_CONTENT, parentDestPath, new AclModification[] {
+        new AclModification(AclModification.grantKey("test"), Permissions.CAN_WRITE.combine(
+            Permissions.CAN_READ).getPermission(), AclModification.Operation.OP_REPLACE)
+     });
+    
+    // move should be successful
+    userSession = repository.login("test", "test");
+    userSession.getContentManager().move(childSourcePath, childDestPath, true);
+    userSession.logout();
+    
+    // verify the remaining content
+    Assert.assertTrue(contentManager.exists(childDestPath));
+    Assert.assertEquals("value-source", contentManager.get(childDestPath).getProperty("test"));
+    Assert.assertFalse(contentManager.exists(childSourcePath));
+    
   }
 
 }
