@@ -26,6 +26,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.FastDateFormat;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.content.ActionRecord;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.lite.util.Type1UUID;
@@ -43,6 +44,8 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -678,9 +681,18 @@ public class StorageClientUtils {
         return getUuid()+"+"; // URL safe base 64 does not use + chars
     }
 
-    public static void copyTree(ContentManager contentManager, String sourcePath, String destPath,
-            boolean withStreams) throws StorageClientException, AccessDeniedException, IOException {
+    public static List<ActionRecord> copyTree(ContentManager contentManager, String sourcePath, String destPath,
+        boolean withStreams) throws StorageClientException, AccessDeniedException, IOException {
+      List<ActionRecord> actions = new LinkedList<ActionRecord>();
+      copyTreeInternal(contentManager, sourcePath, destPath, withStreams, actions);
+      return actions;
+    }
+    
+    private static void copyTreeInternal(ContentManager contentManager, String sourcePath, String destPath,
+            boolean withStreams, List<ActionRecord> actions) throws StorageClientException,
+            AccessDeniedException, IOException {
         contentManager.copy(sourcePath, destPath, withStreams);
+        actions.add(new ActionRecord(sourcePath, destPath));
         LOGGER.info("Copied {} to {} ", sourcePath, destPath );
         Content content = contentManager.get(sourcePath);
         if (content != null) {
@@ -688,11 +700,11 @@ public class StorageClientUtils {
                 String name = StorageClientUtils.getObjectName(childPath);
                 String childSourcePath = StorageClientUtils.newPath(sourcePath, name);
                 String childDestPath = StorageClientUtils.newPath(destPath, name);
-                copyTree(contentManager, childSourcePath, childDestPath, withStreams);
+                copyTreeInternal(contentManager, childSourcePath, childDestPath, withStreams, actions);
             }
         }
     }
-
+    
     public static void dumpTree(Content content) {
         if ( content != null ) {
             LOGGER.info("Path {} ",content.getPath());      
