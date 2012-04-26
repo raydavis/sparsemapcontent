@@ -106,7 +106,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testCreateContent() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -143,7 +143,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testCreateContent2() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -180,7 +180,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testConentTree() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -248,7 +248,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testCopySimple() throws StorageClientException, AccessDeniedException, IOException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -305,7 +305,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testCopyOverwrite() throws StorageClientException, AccessDeniedException, IOException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -364,7 +364,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testSimpleDelete() throws AccessDeniedException, StorageClientException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -392,7 +392,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testSimpleDeleteRoot() throws AccessDeniedException, StorageClientException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -420,7 +420,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testDeleteContent() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -474,8 +474,46 @@ public abstract class AbstractContentManagerTest {
     }
 
     @Test
+    public void testDeleteContentDeletesPathConsistently() throws StorageClientException, AccessDeniedException
+    {
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
+        User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
+
+        AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
+                currentUser, configuration, sharedCache,  new LoggingStorageListener(), principalValidatorResolver);
+
+        ContentManagerImpl contentManager = new ContentManagerImpl(client, accessControlManager,
+                configuration,  sharedCache, new LoggingStorageListener());
+        contentManager.update(new Content("/testDeleteContent", ImmutableMap.of("prop1", (Object) "value1")));
+        contentManager.update(new Content("/testDeleteContent/test", ImmutableMap.of("prop1", (Object) "value2")));
+
+        contentManager.delete("/testDeleteContent/test");
+
+        Assert.assertNull(contentManager.get("/testDeleteContent/test"));
+
+        Content parent = contentManager.get("/testDeleteContent");
+
+        Iterator<Content>
+            children = null;
+        Iterator<String>
+            childPaths = null;
+
+        children = parent.listChildren().iterator();
+        childPaths = parent.listChildPaths().iterator();
+
+        Assert.assertFalse(children.hasNext());
+        Assert.assertFalse(childPaths.hasNext());
+
+        children = contentManager.listChildren("/testDeleteContent");
+        childPaths = contentManager.listChildPaths("/testDeleteContent");
+
+        Assert.assertFalse(children.hasNext());
+        Assert.assertFalse(childPaths.hasNext());
+    }
+
+    @Test
     public void testUpdateContent() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -523,7 +561,7 @@ public abstract class AbstractContentManagerTest {
     @Test
     public void testVersionContent() throws StorageClientException, AccessDeniedException,
             InterruptedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -602,7 +640,7 @@ public abstract class AbstractContentManagerTest {
 
     @Test
     public void testUploadContent() throws StorageClientException, AccessDeniedException {
-        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+        AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
         User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
         AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -716,7 +754,7 @@ public abstract class AbstractContentManagerTest {
 
   @Test
   public void testMoveWithChildren() throws StorageClientException, AccessDeniedException {
-    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
     User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
     AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -765,7 +803,7 @@ public abstract class AbstractContentManagerTest {
 
   @Test
   public void testMoveWithForce() throws Exception {
-    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
     User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
     AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -973,7 +1011,7 @@ public abstract class AbstractContentManagerTest {
   @Test
   public void testCanReuseAContentPath() throws Exception {
       String path = "/pathToReuse" + System.currentTimeMillis();
-      AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+      AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
       User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
       AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -997,7 +1035,7 @@ public abstract class AbstractContentManagerTest {
 
   @Test
   public void testListChildren() throws StorageClientException, AccessDeniedException {
-	  AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+	  AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
 	    User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
 	    AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -1031,7 +1069,7 @@ public abstract class AbstractContentManagerTest {
 
   // @Test This Test runs forever and tests for OOM on disposables.
   public void testOOM() throws StorageClientException, AccessDeniedException {
-      AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+      AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
       User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
       AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -1056,7 +1094,7 @@ public abstract class AbstractContentManagerTest {
 
   @Test
   public void testTrigger() throws StorageClientException, AccessDeniedException {
-    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
     User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
     AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,
@@ -1076,7 +1114,7 @@ public abstract class AbstractContentManagerTest {
 
   @Test
   public void testTriggerAll() throws StorageClientException, AccessDeniedException {
-    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration);
+    AuthenticatorImpl AuthenticatorImpl = new AuthenticatorImpl(client, configuration, null);
     User currentUser = AuthenticatorImpl.authenticate("admin", "admin");
 
     AccessControlManagerImpl accessControlManager = new AccessControlManagerImpl(client,

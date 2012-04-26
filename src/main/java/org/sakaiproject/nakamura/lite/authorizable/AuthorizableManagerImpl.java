@@ -94,7 +94,7 @@ public class AuthorizableManagerImpl extends CachingManager implements Authoriza
         this.accessControlManager = accessControlManager;
         this.keySpace = configuration.getKeySpace();
         this.authorizableColumnFamily = configuration.getAuthorizableColumnFamily();
-        this.authenticator = new AuthenticatorImpl(client, configuration);
+        this.authenticator = new AuthenticatorImpl(client, configuration, sharedCache);
         this.closed = false;
         this.storeListener = storeListener;
         accessControlManager.setAuthorizableManager(this);
