@@ -554,7 +554,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
 
     public void delete(String path, boolean recurse) throws AccessDeniedException, StorageClientException {
         checkOpen();
-        accessControlManager.check(Security.ZONE_CONTENT, path, Permissions.CAN_DELETE);
+        checkCanDelete(path);
         Iterator<String> children = listChildPaths(path);
         if (!recurse && children.hasNext()) {
             throw new StorageClientException("Unable to delete a path with active children ["
@@ -758,7 +758,9 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
     public List<ActionRecord> move(String from, String to, boolean force,
         boolean keepDestinationHistory) throws AccessDeniedException, StorageClientException {
       List<ActionRecord> record = Lists.newArrayList();
-
+      
+      checkCanMove(from, to);
+      
       // delete the nodes at `to` that aren't part of `from` if we're keeping destination
       // history
       if (keepDestinationHistory) {
@@ -801,9 +803,6 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         // to move, get the structure object out and modify, recreating parent
         // objects as necessary.
         checkOpen();
-        accessControlManager.check(Security.ZONE_CONTENT, from, Permissions.CAN_ANYTHING);
-        accessControlManager.check(Security.ZONE_CONTENT, to,
-                Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
         Map<String, Object> fromStructure = Maps.newHashMap(getCached(keySpace, contentColumnFamily, from));
         String fromContentId = null;
         Map<String, Object> fromContent = null;
@@ -888,7 +887,15 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         putCached(keySpace, contentColumnFamily, to, fromStructure, true);
 
         // move the ACLs
-        moveAcl(from, to, force);
+        try {
+          moveAcl(from, to, force);
+        } catch (AccessDeniedException e) {
+          /*
+           * It should be acceptable to move content without transferring any ACLs. ACLs that
+           * existed before (if any) will be maintained.
+           */
+          LOGGER.debug("Moved content without proper permission to transfer ACLs.");
+        }
 
         // remove the old from.
         putCached(keySpace, contentColumnFamily, from, ImmutableMap.of(DELETED_FIELD, (Object)TRUE), false);
@@ -1221,8 +1228,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
       boolean moved = false;
 
       // check that we have the same permissions as used in ContentManager.move(..)
-      accessControlManager.check(Security.ZONE_CONTENT, from, Permissions.CAN_ANYTHING);
-      accessControlManager.check(Security.ZONE_CONTENT, to, Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
+      checkCanMoveAcl(from, to);
 
       // get the ACL to move and make the map mutable
       Map<String, Object> fromAcl = Maps.newHashMap(accessControlManager.getAcl(objectType, from));
@@ -1268,6 +1274,74 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         moved = true;
       }
       return moved;
+    }
+
+    
+    /**
+     * Determines whether or not the current user can move the object from the given {@code from}
+     * path to the given {@code to} path.
+     * 
+     * @param from
+     * @param to
+     * @throws AccessDeniedException
+     * @throws StorageClientException
+     */
+    private void checkCanMove(String from, String to) throws AccessDeniedException,
+        StorageClientException {
+      accessControlManager.check(Security.ZONE_CONTENT, from,
+          Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
+      accessControlManager.check(Security.ZONE_CONTENT, to,
+              Permissions.CAN_READ.combine(Permissions.CAN_WRITE));
+      checkCanDelete(from);
+      
+      /*
+       * It's worth noting that we're not checking checkCanDelete on the 'to' path. This is because
+       * when moving content to the 'to' path, that specific node is never actually being deleted,
+       * just edited/replaced. Since we consider any children of a write-able node as delete-able
+       * (see checkCanDelete), checking CAN_WRITE on the 'to' path is enough.
+       */
+    }
+    
+    /**
+     * Determines whether or not the current user has the rights to move ACLs from the given
+     * {@code from} path to the given {@code to} path.
+     * 
+     * @param from
+     * @param to
+     * @throws AccessDeniedException
+     * @throws StorageClientException
+     */
+    private void checkCanMoveAcl(String from, String to) throws AccessDeniedException,
+        StorageClientException {
+      // we will be READing, from the source, then deleting from the source 
+      accessControlManager.check(Security.ZONE_CONTENT, from, Permissions.CAN_READ_ACL.combine(Permissions.CAN_WRITE_ACL));
+      
+      // we will be WRITEing to the destination, but we will not be deleting existing ACLs at this point.
+      accessControlManager.check(Security.ZONE_CONTENT, to, Permissions.CAN_WRITE_ACL);
+    }
+    
+    /**
+     * Determines whether or not the current user can delete the object at the given {@code path}.
+     * 
+     * @param path
+     * @throws AccessDeniedException If the user cannot delete the given node.
+     * @throws StorageClientException If there is an generic error accessing the storage client.
+     */
+    private void checkCanDelete(String path) throws AccessDeniedException, StorageClientException {
+      if (StorageClientUtils.isRoot(path)) {
+        // if this is a root path, no check to the parent is required
+        accessControlManager.check(Security.ZONE_CONTENT, path, Permissions.CAN_DELETE);
+      } else {
+        // we first check the parent to see if the user has write access on it. if they do, then
+        // they are allowed to delete this child.
+        String parentPath = StorageClientUtils.getParentObjectPath(path);
+        try {
+          accessControlManager.check(Security.ZONE_CONTENT, parentPath, Permissions.CAN_WRITE);
+        } catch (AccessDeniedException e) {
+          // the user cannot write the parent, but if they can delete the current, then we succeed
+          accessControlManager.check(Security.ZONE_CONTENT, path, Permissions.CAN_DELETE);
+        }
+      }
     }
 
     private String lastElement(String dest) {
