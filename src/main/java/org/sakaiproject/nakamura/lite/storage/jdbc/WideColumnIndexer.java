@@ -546,6 +546,7 @@ public class WideColumnIndexer extends AbstractIndexer {
             });
         } catch (SQLException e) {
             LOGGER.error(e.getMessage(), e);
+            client.resetConnection(null);
             throw new StorageClientException(e.getMessage() + " SQL Statement was " + sqlStatement,
                     e);
         } finally {

@@ -65,6 +65,16 @@ public class ConnectionManager extends TimerTask {
         threadMap.put(t, ch);
     }
 
+    public void clean() {
+        Thread t = Thread.currentThread();
+        threadMap.get(t);
+        ConnectionHolder c = threadMap.get(t);
+        if (c != null) {
+            c.close();
+            threadMap.remove(t);
+        }
+    }
+
     private void cleanThreadMap() {
         if ( closing ) {
             return;
