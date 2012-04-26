@@ -94,7 +94,7 @@ public class JDBCStorageClientPool extends AbstractClientConnectionPool {
 
         public void destroyObject(Object obj) throws Exception {
             JDBCStorageClient client = (JDBCStorageClient) obj;
-            client.close();
+            client.destroy();
 
         }
 
@@ -373,8 +373,9 @@ public class JDBCStorageClientPool extends AbstractClientConnectionPool {
         return connection;
     }
 
-
-
+    public void resetConnection() {
+        connectionManager.clean();
+    }
 
     public String getValidationSql() {
         if ( sqlConfig != null ) {

@@ -269,6 +269,7 @@ public abstract class KeyValueIndexer extends AbstractIndexer {
                     } catch (SQLException e) {
                         LOGGER.error(e.getMessage(), e);
                         close();
+                        client.resetConnection(null);
                         nextValue = null;
                         return false;
                     } catch (StorageClientException e) {

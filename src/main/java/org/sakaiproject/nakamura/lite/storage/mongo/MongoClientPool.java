@@ -140,6 +140,9 @@ public class MongoClientPool implements StorageClientPool {
 			public Map<String, CacheHolder> getAccessControlCache() {
                 return sharedCache;
             }
+      public Map<String, CacheHolder> getCache(String cacheName) {
+                return sharedCache;
+            }
         };
 	}
 
