@@ -17,36 +17,37 @@
  */
 package org.sakaiproject.nakamura.lite.accesscontrol;
 
+import java.util.Map;
+
+import org.sakaiproject.nakamura.api.lite.CacheHolder;
 import org.sakaiproject.nakamura.api.lite.Configuration;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Authenticator;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
+import org.sakaiproject.nakamura.api.lite.util.EnabledPeriod;
+import org.sakaiproject.nakamura.lite.CachingManager;
 import org.sakaiproject.nakamura.lite.authorizable.UserInternal;
 import org.sakaiproject.nakamura.lite.storage.StorageClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Map;
-
-public class AuthenticatorImpl implements Authenticator {
+public class AuthenticatorImpl extends CachingManager implements Authenticator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthenticatorImpl.class);
-    private StorageClient client;
     private String keySpace;
     private String authorizableColumnFamily;
 
-    public AuthenticatorImpl(StorageClient client, Configuration configuration) {
-        this.client = client;
+    public AuthenticatorImpl(StorageClient client, Configuration configuration, Map<String, CacheHolder> sharedCache) {
+        super(client, sharedCache);
         this.keySpace = configuration.getKeySpace();
         this.authorizableColumnFamily = configuration.getAuthorizableColumnFamily();
     }
 
     public User authenticate(String userid, String password) {
         try {
-            Map<String, Object> userAuthMap = client
-                    .get(keySpace, authorizableColumnFamily, userid);
+            Map<String, Object> userAuthMap = getCached(keySpace, authorizableColumnFamily, userid);
             if (userAuthMap == null) {
                 LOGGER.debug("User was not found {}", userid);
                 return null;
@@ -69,14 +70,23 @@ public class AuthenticatorImpl implements Authenticator {
     }
 
     public User systemAuthenticate(String userid) {
+        return internalSystemAuthenticate(userid, false);
+    }
+
+    public User systemAuthenticateBypassEnable(String userid) {
+        return internalSystemAuthenticate(userid, true);
+    }
+
+    private User internalSystemAuthenticate(String userid, boolean forceEnableLogin) {
         try {
-            Map<String, Object> userAuthMap = client
-                    .get(keySpace, authorizableColumnFamily, userid);
+            Map<String, Object> userAuthMap = getCached(keySpace, authorizableColumnFamily, userid);
             if (userAuthMap == null || userAuthMap.size() == 0) {
                 LOGGER.debug("User was not found {}", userid);
                 return null;
             }
-            return new UserInternal(userAuthMap, null, false);
+            if ( forceEnableLogin || EnabledPeriod.isInEnabledPeriod((String) userAuthMap.get(User.LOGIN_ENABLED_PERIOD_FIELD)) ) {
+                return new UserInternal(userAuthMap, null, false);
+            }
         } catch (StorageClientException e) {
             LOGGER.debug("Failed To system authenticate user " + e.getMessage(), e);
         } catch (AccessDeniedException e) {
@@ -84,5 +94,11 @@ public class AuthenticatorImpl implements Authenticator {
         }
         return null;
     }
+
+    @Override
+    protected Logger getLogger() {
+        return LOGGER;
+    }
+
 
 }
