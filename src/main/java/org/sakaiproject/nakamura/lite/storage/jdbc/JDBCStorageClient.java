@@ -142,7 +142,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     private int maxNameLength;
 
     public JDBCStorageClient(JDBCStorageClientPool jdbcStorageClientConnectionPool,
-            Map<String, Object> properties, Map<String, Object> sqlConfig, Set<String> indexColumns, Set<String> indexColumnTypes, Map<String, String> indexColumnsNames) throws SQLException,
+            Map<String, Object> properties, Map<String, Object> sqlConfig, Set<String> indexColumns, Set<String> indexColumnTypes, Map<String, String> indexColumnsNames, boolean enforceWideColums) throws SQLException,
             NoSuchAlgorithmException, StorageClientException {
         if ( jdbcStorageClientConnectionPool == null ) {
             throw new StorageClientException("Null Connection Pool, cant create Client");
@@ -169,10 +169,17 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         this.maxNameLength = Integer.parseInt(StorageClientUtils.getSetting(getSql(SQL_MAX_NAME_LENGTH),"50"));
         active = true;
         if ( indexColumnsNames != null ) {
+            LOGGER.debug("Using Wide Columns" );
             indexer = new WideColumnIndexer(this,indexColumnsNames, indexColumnTypes, sqlConfig);
         } else if ("1".equals(getSql(USE_BATCH_INSERTS))) {
+            if ( enforceWideColums ) {
+                LOGGER.warn("Batch Narrow Column Indexes are deprecated as of 1.5, please check your database and/or configuration, support will be removed in future releases" );
+            }
             indexer = new BatchInsertIndexer(this, indexColumns, sqlConfig);
         } else {
+            if ( enforceWideColums ) {
+                LOGGER.warn("Narrow Column Indexes are deprecated as of 1.5, please check your database and/or configuration, support will be removed in future releases" );
+            }
             indexer = new NonBatchInsertIndexer(this, indexColumns, sqlConfig);
         }
         
@@ -533,7 +540,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
             close(deleteBlockRow, "deleteBlockRow");
         }
     }
-
+    
     public void close() {
         passivate();
         jdbcStorageClientConnection.releaseClient(this);
@@ -543,12 +550,10 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         if (destroyed == null) {
             try {
                 destroyed = new Exception("Connection Closed Traceback");
-                shutdownConnection();
-                jdbcStorageClientConnection.releaseClient(this);
             } catch (Throwable t) {
-                LOGGER.error("Failed to close connection ", t);
+                LOGGER.error("Failed to dispose connection ", t);
             }
-        }
+        }        
     }
 
     private void checkActive() throws StorageClientException {
@@ -634,15 +639,8 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
         return pst;
     }
 
-    public void shutdownConnection() {
-        if (active) {
-            disposeDisposables();
-            active = false;
-        }
-    }
 
     private void disposeDisposables() {
-        passivate = new Exception("Passivate Traceback");
         List<Disposable> dList = null;
         // this shoud not be necessary, but just in case.
         synchronized (desponseLock ) {
@@ -671,7 +669,7 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
     }
 
     public boolean validate() throws StorageClientException {
-        checkActive();
+        checkActive(false);
         Statement statement = null;
         try {
             // just get a connection, that will be enough to validate.
@@ -790,10 +788,15 @@ public class JDBCStorageClient implements StorageClient, RowHasher, Disposer {
 
     public void activate() {
         passivate = null;
+        active = true;
     }
 
     public void passivate() {
-        disposeDisposables();
+        if (active) {
+            passivate = new Exception("Passivate Traceback");
+            disposeDisposables();
+            active = false;
+        }
     }
 
     public Map<String, Object> streamBodyIn(String keySpace, String columnFamily, String contentId,
