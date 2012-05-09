@@ -370,8 +370,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
             try {
                 while(all.hasNext()) {
                     Map<String, Object> c = all.next().getProperties();
-                    if ( c.containsKey(PATH_FIELD) && !c.containsKey(STRUCTURE_UUID_FIELD)) {
-                        
+                    if ( exists(c) && c.containsKey(PATH_FIELD) && !c.containsKey(STRUCTURE_UUID_FIELD)) {
                         eventListener.onUpdate(Security.ZONE_CONTENT, (String)c.get(PATH_FIELD), User.ADMIN_USER, getResourceType(c), false, null, "op:update");
                     }
                 }
@@ -583,7 +582,7 @@ public class ContentManagerImpl extends CachingManager implements ContentManager
         }
     }
 
-    private boolean exists(Map<String, Object> map) {
+    public static boolean exists(Map<String, Object> map) {
         return map != null && map.size() > 0 && !TRUE.equals(map.get(DELETED_FIELD));
     }
 

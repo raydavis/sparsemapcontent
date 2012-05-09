@@ -26,6 +26,7 @@ import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.lite.SessionImpl;
 import org.sakaiproject.nakamura.lite.accesscontrol.AccessControlManagerImpl;
 import org.sakaiproject.nakamura.lite.content.BlockSetContentHelper;
+import org.sakaiproject.nakamura.lite.content.ContentManagerImpl;
 import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
 import org.sakaiproject.nakamura.lite.storage.SparseRow;
 import org.sakaiproject.nakamura.lite.storage.StorageClient;
@@ -256,6 +257,9 @@ public class MigrateContentComponent implements MigrateContentService {
                     }
                     try {
                         Map<String, Object> properties = r.getProperties();
+                        if (!ContentManagerImpl.exists(properties)) {
+                            continue;
+                        }
                         String rid = r.getRowId();
                         boolean save = false;
                         for (PropertyMigrator propertyMigrator : propertyMigrators) {
